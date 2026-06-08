@@ -73,4 +73,24 @@ class MappingDatabase {
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
   }
+
+  Future<List<Map<String, Object?>>> listMappingsForCalendar(
+    String sourceCalendarId,
+  ) async {
+    final db = await database;
+    return db.query(
+      _tableName,
+      where: '$_columnSourceCalendarId = ?',
+      whereArgs: [sourceCalendarId],
+    );
+  }
+
+  Future<void> deleteMapping(int id) async {
+    final db = await database;
+    await db.delete(
+      _tableName,
+      where: '$_columnId = ?',
+      whereArgs: [id],
+    );
+  }
 }

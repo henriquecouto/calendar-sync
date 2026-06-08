@@ -17,13 +17,40 @@ class SyncEngine {
   }) async {
     final synced = <String>[];
     final skipped = <String>[];
+    final deleted = <String>[];
     final errors = <String>[];
 
     final sourceEvents = await _calendarService.listEvents(sourceCalendarId);
 
+    final sourceEventIds = sourceEvents
+        .map((e) => e.eventId)
+        .where((id) => id != null)
+        .toSet();
+
+    final mappings = await _mappingDb.listMappingsForCalendar(
+      sourceCalendarId,
+    );
+
+    for (final mapping in mappings) {
+      final mappingId = mapping['id'] as int;
+      final sourceEventId = mapping['source_event_id'] as String;
+      final targetEventId = mapping['target_event_id'] as String;
+      final targetCalId = mapping['target_calendar_id'] as String;
+
+      if (!sourceEventIds.contains(sourceEventId)) {
+        try {
+          await _calendarService.deleteEvent(targetCalId, targetEventId);
+          await _mappingDb.deleteMapping(mappingId);
+          deleted.add(sourceEventId);
+        } catch (e) {
+          errors.add('$sourceEventId: delete failed: $e');
+        }
+      }
+    }
+
     for (final event in sourceEvents) {
       final eventId = event.eventId;
-      if (eventId == null || event.eventId == null) continue;
+      if (eventId == null) continue;
 
       try {
         final alreadySynced = await _mappingDb.isEventSynced(
@@ -70,6 +97,7 @@ class SyncEngine {
     return SyncResult(
       synced: UnmodifiableListView(synced),
       skipped: UnmodifiableListView(skipped),
+      deleted: UnmodifiableListView(deleted),
       errors: UnmodifiableListView(errors),
     );
   }
@@ -78,11 +106,13 @@ class SyncEngine {
 class SyncResult {
   final UnmodifiableListView<String> synced;
   final UnmodifiableListView<String> skipped;
+  final UnmodifiableListView<String> deleted;
   final UnmodifiableListView<String> errors;
 
   const SyncResult({
     required this.synced,
     required this.skipped,
+    required this.deleted,
     required this.errors,
   });
 }

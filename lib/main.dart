@@ -1,11 +1,34 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:workmanager/workmanager.dart';
 import 'permissions/permission_gate.dart';
 import 'settings/settings_service.dart';
 import 'calendar/calendar_service.dart';
 import 'sync/mapping_database.dart';
 import 'sync/sync_engine.dart';
+import 'background/sync_task.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Workmanager().initialize(callbackDispatcher);
+
+  const channel = MethodChannel('com.example.calendar_sync/calendar_observer');
+  channel.setMethodCallHandler((call) async {
+    if (call.method == 'onCalendarChanged') {
+      final settings = SettingsService();
+      final interval = await settings.syncIntervalMinutes;
+      if (interval == 0) return;
+
+      await Workmanager().registerOneOffTask(
+        'calendar_sync_reactive',
+        'syncTask',
+        initialDelay: const Duration(seconds: 5),
+        existingWorkPolicy: ExistingWorkPolicy.replace,
+      );
+    }
+  });
+
   runApp(const CalendarSyncApp());
 }
 
@@ -50,6 +73,7 @@ class _HomePageState extends State<HomePage> {
 
   String? _sourceCalendarId;
   String? _targetCalendarId;
+  int _intervalMinutes = 60;
   final _syncNameController = TextEditingController();
 
   List<_CalendarItem> _calendars = [];
@@ -66,6 +90,7 @@ class _HomePageState extends State<HomePage> {
     final sourceId = await _settings.sourceCalendarId;
     final targetId = await _settings.targetCalendarId;
     final syncName = await _settings.syncEventName;
+    final interval = await _settings.syncIntervalMinutes;
     _syncNameController.text = syncName;
 
     final calendars = await _calendarService.listCalendars();
@@ -73,11 +98,30 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _sourceCalendarId = sourceId;
       _targetCalendarId = targetId;
+      _intervalMinutes = interval;
       _calendars = calendars
           .map((c) => _CalendarItem(c.id ?? '', c.name ?? 'Unknown'))
           .toList();
       _loading = false;
     });
+
+    _registerPeriodicTask(interval);
+  }
+
+  Future<void> _registerPeriodicTask(int intervalMinutes) async {
+    if (intervalMinutes > 0) {
+      await Workmanager().registerPeriodicTask(
+        'calendar_sync_periodic',
+        'syncTask',
+        frequency: Duration(minutes: intervalMinutes),
+        constraints: Constraints(
+          networkType: NetworkType.notRequired,
+        ),
+        existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+      );
+    } else {
+      await Workmanager().cancelAll();
+    }
   }
 
   Future<void> _saveSource(String id) async {
@@ -92,6 +136,12 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _saveSyncName() async {
     await _settings.setSyncEventName(_syncNameController.text);
+  }
+
+  Future<void> _saveInterval(int minutes) async {
+    await _settings.setSyncIntervalMinutes(minutes);
+    setState(() => _intervalMinutes = minutes);
+    _registerPeriodicTask(minutes);
   }
 
   Future<void> _sync() async {
@@ -120,6 +170,7 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _status =
           'Synced: ${result.synced.length}, '
+          'Deleted: ${result.deleted.length}, '
           'Skipped: ${result.skipped.length}, '
           'Errors: ${result.errors.length}';
     });
@@ -175,7 +226,30 @@ class _HomePageState extends State<HomePage> {
                     ),
                     onChanged: (_) => _saveSyncName(),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  DropdownMenu<int>(
+                    initialSelection: _intervalMinutes,
+                    label: const Text('Fallback Interval'),
+                    expandedInsets: EdgeInsets.zero,
+                    dropdownMenuEntries: const [
+                      DropdownMenuEntry(value: 0, label: 'Off (manual only)'),
+                      DropdownMenuEntry(value: 15, label: '15 minutes'),
+                      DropdownMenuEntry(value: 30, label: '30 minutes'),
+                      DropdownMenuEntry(value: 60, label: '1 hour'),
+                      DropdownMenuEntry(value: 120, label: '2 hours'),
+                      DropdownMenuEntry(value: 360, label: '6 hours'),
+                    ],
+                    onSelected: (val) {
+                      if (val != null) _saveInterval(val);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Changes are detected within seconds. '
+                    'The interval above is a fallback only.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: _sync,
                     icon: const Icon(Icons.sync),

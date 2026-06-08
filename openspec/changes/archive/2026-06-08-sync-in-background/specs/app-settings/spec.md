@@ -1,10 +1,4 @@
-# App Settings
-
-## Purpose
-
-Persist user-configurable sync settings (source calendar, target calendar, event name, sync interval) across app restarts.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Save sync configuration
 The system SHALL persist four user-configurable settings: source calendar ID, target calendar ID, sync event name, and sync interval in minutes. These SHALL survive app restarts.
