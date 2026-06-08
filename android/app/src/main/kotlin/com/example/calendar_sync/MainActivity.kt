@@ -13,6 +13,7 @@ class MainActivity : FlutterActivity() {
         try {
             CalendarContentObserver.register(applicationContext)
         } catch (_: SecurityException) {}
+        CalendarContentObserver.FlutterEngineHolder.appContext = applicationContext
         flutterEngine?.let { engine ->
             CalendarContentObserver.FlutterEngineHolder.binaryMessenger =
                 engine.dartExecutor.binaryMessenger
