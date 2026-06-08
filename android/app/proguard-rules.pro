@@ -9,3 +9,13 @@
 
 # NotificationCompat
 -keep class androidx.core.app.NotificationCompat { *; }
+
+# device_calendar plugin — Gson serialization, keep field names
+-keep class com.builttoroam.devicecalendar.models.** { *; }
+-keep class com.builttoroam.devicecalendar.common.** { *; }
+-keep class com.builttoroam.devicecalendar.** { *; }
+
+# Keep Gson
+-keep class com.google.gson.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
