@@ -1,10 +1,4 @@
-# Permission Handling
-
-## Purpose
-
-Handle runtime permissions (`READ_CALENDAR` / `WRITE_CALENDAR` / `POST_NOTIFICATIONS`) and gate calendar operations behind a permission check.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Request calendar permissions at runtime
 The system SHALL request `READ_CALENDAR`, `WRITE_CALENDAR`, and `POST_NOTIFICATIONS` permissions from the user at runtime before any calendar operation.
@@ -35,10 +29,3 @@ The system SHALL verify that `READ_CALENDAR` and `WRITE_CALENDAR` are granted be
 #### Scenario: Notification permission denied, sync proceeds
 - **WHEN** calendar permissions are granted but notification permission is denied
 - **THEN** sync executes normally but no notification is shown on completion
-
-### Requirement: Handle permanently denied permissions
-The system SHALL detect when permissions are permanently denied (user selected "Don't ask again") and direct the user to the system Settings app to grant them manually.
-
-#### Scenario: Permissions permanently denied
-- **WHEN** the user has permanently denied calendar permissions
-- **THEN** the app shows a message explaining how to enable permissions in system Settings and provides a button to open the app's settings page

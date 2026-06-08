@@ -1,3 +1,4 @@
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 import '../sync/mapping_database.dart';
 import '../sync/sync_engine.dart';
@@ -8,6 +9,18 @@ import '../permissions/permission_service.dart';
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
+    final notifications = FlutterLocalNotificationsPlugin();
+
+    const channel = AndroidNotificationChannel(
+      'calendar_sync',
+      'Calendar Sync',
+      importance: Importance.defaultImportance,
+    );
+    await notifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
     try {
       final settings = SettingsService();
       final interval = await settings.syncIntervalMinutes;
@@ -26,11 +39,33 @@ void callbackDispatcher() {
       }
 
       final engine = SyncEngine(CalendarService(), MappingDatabase());
-      await engine.runSync(
+      final result = await engine.runSync(
         sourceCalendarId: sourceId,
         targetCalendarId: targetId,
         syncEventName: syncName,
       );
+
+      if (result.synced.isNotEmpty || result.deleted.isNotEmpty) {
+        var body = 'Synced: ${result.synced.length}, '
+            'Deleted: ${result.deleted.length}, '
+            'Skipped: ${result.skipped.length}';
+        if (result.errors.isNotEmpty) {
+          body += ' + ${result.errors.length} errors';
+        }
+
+        await notifications.show(
+          0,
+          'Calendar Sync',
+          body,
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'calendar_sync',
+              'Calendar Sync',
+              importance: Importance.defaultImportance,
+            ),
+          ),
+        );
+      }
     } catch (_) {}
 
     return true;

@@ -15,6 +15,16 @@ class PermissionService {
     return await Permission.calendarFullAccess.isPermanentlyDenied;
   }
 
+  Future<bool> get areNotificationPermissionsGranted async {
+    final status = await Permission.notification.status;
+    return status.isGranted;
+  }
+
+  Future<bool> requestNotificationPermission() async {
+    final status = await Permission.notification.request();
+    return status.isGranted;
+  }
+
   Future<void> openAppSettings() async {
     await openAppSettings();
   }

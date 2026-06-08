@@ -31,6 +31,9 @@ class _PermissionGateState extends State<PermissionGate> {
       _permanentlyDenied = permDenied;
       _loading = false;
     });
+    if (granted) {
+      _requestNotificationIfNeeded();
+    }
   }
 
   Future<void> _requestPermissions() async {
@@ -40,10 +43,18 @@ class _PermissionGateState extends State<PermissionGate> {
         _granted = true;
         _permanentlyDenied = false;
       });
+      _requestNotificationIfNeeded();
     } else {
       final permDenied =
           await _service.areCalendarPermissionsPermanentlyDenied;
       setState(() => _permanentlyDenied = permDenied);
+    }
+  }
+
+  Future<void> _requestNotificationIfNeeded() async {
+    final alreadyGranted = await _service.areNotificationPermissionsGranted;
+    if (!alreadyGranted) {
+      await _service.requestNotificationPermission();
     }
   }
 
