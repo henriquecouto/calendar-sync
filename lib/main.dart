@@ -118,7 +118,7 @@ class _HomePageState extends State<HomePage> {
       _loading = false;
     });
 
-    _registerPeriodicTask(interval);
+    await _registerPeriodicTask(interval);
   }
 
   Future<void> _registerPeriodicTask(int intervalMinutes) async {
@@ -154,7 +154,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _saveInterval(int minutes) async {
     await _settings.setSyncIntervalMinutes(minutes);
     setState(() => _intervalMinutes = minutes);
-    _registerPeriodicTask(minutes);
+    await _registerPeriodicTask(minutes);
   }
 
   Future<void> _sync() async {
