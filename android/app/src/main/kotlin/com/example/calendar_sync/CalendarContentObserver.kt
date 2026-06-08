@@ -22,6 +22,9 @@ class CalendarContentObserver(
                 "com.example.calendar_sync/calendar_observer",
             ).invokeMethod("onCalendarChanged", null)
         }
+        Handler(Looper.getMainLooper()).postDelayed({
+            showPendingNotification()
+        }, 10_000L)
     }
 
     object FlutterEngineHolder {
@@ -30,16 +33,6 @@ class CalendarContentObserver(
     }
 
     companion object {
-        private const val CHECK_INTERVAL_MS = 30_000L
-        private val handler = Handler(Looper.getMainLooper())
-        private val checkRunnable = object : Runnable {
-            override fun run() {
-                checkAndShowNotification()
-                handler.postDelayed(this, CHECK_INTERVAL_MS)
-            }
-        }
-        private var checkerStarted = false
-
         fun register(context: Context) {
             val observer = CalendarContentObserver(
                 context,
@@ -50,13 +43,9 @@ class CalendarContentObserver(
                 true,
                 observer,
             )
-            if (!checkerStarted) {
-                checkerStarted = true
-                handler.post(checkRunnable)
-            }
         }
 
-        fun checkAndShowNotification() {
+        fun showPendingNotification() {
             val ctx = FlutterEngineHolder.appContext ?: return
             val prefs = ctx.getSharedPreferences(
                 "FlutterSharedPreferences", Context.MODE_PRIVATE
