@@ -7,7 +7,11 @@ Automatically synchronize calendar events in the background using reactive Conte
 ## Requirements
 
 ### Requirement: React to calendar changes via ContentObserver
-The system SHALL register a native Android ContentObserver on `CalendarContract.Events.CONTENT_URI` that triggers the sync engine when the source calendar changes. The observer SHALL debounce rapid changes by waiting 5 seconds before enqueueing work, using `ExistingWorkPolicy.REPLACE` to batch multiple triggers into a single sync.
+The system SHALL register a native Android ContentObserver on `CalendarContract.Events.CONTENT_URI` that triggers the sync engine when the source calendar changes. The observer SHALL be re-registered by a native WorkManager periodic task to survive process death. The observer SHALL debounce rapid changes by waiting 5 seconds before enqueueing work.
+
+#### Scenario: Observer survives process death
+- **WHEN** Android kills the app process and later the WorkManager periodic task executes
+- **THEN** the ContentObserver is re-registered and reactive sync resumes without requiring the user to open the app
 
 #### Scenario: New event triggers sync
 - **WHEN** a new event is added to the source calendar
@@ -16,10 +20,6 @@ The system SHALL register a native Android ContentObserver on `CalendarContract.
 #### Scenario: Rapid changes batched
 - **WHEN** 5 events are added to the source calendar in quick succession
 - **THEN** only one sync cycle executes, processing all 5 events together
-
-#### Scenario: Observer re-registers on app start
-- **WHEN** the user launches the app after a force-stop
-- **THEN** the ContentObserver is re-registered and future calendar changes will trigger sync
 
 ### Requirement: Propagate deletions to target calendar
 When a previously synced source event no longer appears in the source calendar, the system SHALL delete the corresponding target event and remove the mapping record.
