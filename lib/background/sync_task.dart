@@ -1,4 +1,4 @@
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import '../sync/mapping_database.dart';
 import '../sync/sync_engine.dart';
@@ -41,36 +41,11 @@ void callbackDispatcher() {
           body += ' + ${result.errors.length} errors';
         }
 
-        await _showNotification(body);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('pending_sync_notification', body);
       }
     } catch (_) {}
 
     return true;
   });
-}
-
-Future<void> _showNotification(String body) async {
-  final notifications = FlutterLocalNotificationsPlugin();
-  await notifications
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(
-        const AndroidNotificationChannel(
-          'calendar_sync',
-          'Calendar Sync',
-          importance: Importance.defaultImportance,
-        ),
-      );
-      await notifications.show(
-          id: 0,
-          title: 'Calendar Sync',
-          body: body,
-          notificationDetails: const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'calendar_sync',
-              'Calendar Sync',
-              importance: Importance.defaultImportance,
-            ),
-          ),
-        );
 }
