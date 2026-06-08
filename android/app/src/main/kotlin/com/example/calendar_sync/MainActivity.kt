@@ -1,7 +1,11 @@
 package com.example.calendar_sync
 
 import android.os.Bundle
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import io.flutter.embedding.android.FlutterActivity
+import java.util.concurrent.TimeUnit
 
 class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -11,6 +15,20 @@ class MainActivity : FlutterActivity() {
             CalendarContentObserver.FlutterEngineHolder.binaryMessenger =
                 engine.dartExecutor.binaryMessenger
         }
+        scheduleObserverRegistration()
+    }
+
+    private fun scheduleObserverRegistration() {
+        val request = PeriodicWorkRequestBuilder<ObserverRegistrationWorker>(
+            15, TimeUnit.MINUTES,
+        ).build()
+
+        WorkManager.getInstance(applicationContext)
+            .enqueueUniquePeriodicWork(
+                "observer_registration",
+                ExistingPeriodicWorkPolicy.KEEP,
+                request,
+            )
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: io.flutter.embedding.engine.FlutterEngine) {
