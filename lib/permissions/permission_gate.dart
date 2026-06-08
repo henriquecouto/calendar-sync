@@ -19,43 +19,55 @@ class _PermissionGateState extends State<PermissionGate> {
   @override
   void initState() {
     super.initState();
-    _checkPermissions();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPermissions();
+    });
   }
 
   Future<void> _checkPermissions() async {
-    final granted = await _service.areCalendarPermissionsGranted;
-    final permDenied =
-        await _service.areCalendarPermissionsPermanentlyDenied;
-    setState(() {
-      _granted = granted;
-      _permanentlyDenied = permDenied;
-      _loading = false;
-    });
-    if (granted) {
-      _requestNotificationIfNeeded();
+    try {
+      final granted = await _service.areCalendarPermissionsGranted;
+      final permDenied =
+          await _service.areCalendarPermissionsPermanentlyDenied;
+      setState(() {
+        _granted = granted;
+        _permanentlyDenied = permDenied;
+        _loading = false;
+      });
+      if (granted) {
+        _requestNotificationIfNeeded();
+      }
+    } catch (_) {
+      setState(() => _loading = false);
     }
   }
 
   Future<void> _requestPermissions() async {
-    final granted = await _service.requestCalendarPermissions();
-    if (granted) {
-      setState(() {
-        _granted = true;
-        _permanentlyDenied = false;
-      });
-      _requestNotificationIfNeeded();
-    } else {
-      final permDenied =
-          await _service.areCalendarPermissionsPermanentlyDenied;
-      setState(() => _permanentlyDenied = permDenied);
+    try {
+      final granted = await _service.requestCalendarPermissions();
+      if (granted) {
+        setState(() {
+          _granted = true;
+          _permanentlyDenied = false;
+        });
+        _requestNotificationIfNeeded();
+      } else {
+        final permDenied =
+            await _service.areCalendarPermissionsPermanentlyDenied;
+        setState(() => _permanentlyDenied = permDenied);
+      }
+    } catch (_) {
+      setState(() => _granted = false);
     }
   }
 
   Future<void> _requestNotificationIfNeeded() async {
-    final alreadyGranted = await _service.areNotificationPermissionsGranted;
-    if (!alreadyGranted) {
-      await _service.requestNotificationPermission();
-    }
+    try {
+      final alreadyGranted = await _service.areNotificationPermissionsGranted;
+      if (!alreadyGranted) {
+        await _service.requestNotificationPermission();
+      }
+    } catch (_) {}
   }
 
   Future<void> _openSettings() async {

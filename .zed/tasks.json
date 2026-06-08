@@ -1,0 +1,67 @@
+[
+  {
+    "label": "flutter: run debug",
+    "command": "flutter run --debug",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always"
+  },
+  {
+    "label": "flutter: run release",
+    "command": "flutter run --release",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always"
+  },
+  {
+    "label": "flutter: build apk debug",
+    "command": "flutter build apk --debug",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "flutter: build apk release",
+    "command": "flutter build apk --release",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "flutter: analyze",
+    "command": "flutter analyze",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "flutter: test",
+    "command": "flutter test",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "flutter: clean",
+    "command": "flutter clean",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "flutter: pub get",
+    "command": "flutter pub get",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "emulator: start Pixel_Android36",
+    "command": "$HOME/Android/Sdk/emulator/emulator -avd Pixel_Android36 -netdelay none -netspeed full",
+    "use_new_terminal": false,
+    "reveal": "no_focus",
+    "hide": "on_success"
+  }
+]
