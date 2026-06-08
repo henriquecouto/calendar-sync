@@ -18,11 +18,11 @@ The system SHALL query the local mapping table to determine whether a source eve
 - **THEN** the system marks it for sync and creates a target event
 
 ### Requirement: Create synced event with user-provided name
-The system SHALL create a target event using the user-configured sync name (not the original event title). The target event SHALL copy the source event's start time and end time.
+The system SHALL create a target event using the user-configured sync name (not the original event title). The target event SHALL copy the source event's start time and end time. The target event's description SHALL be set to the original source event title.
 
-#### Scenario: Synced event uses custom name
+#### Scenario: Synced event uses custom name and preserves source title as description
 - **WHEN** the user has configured "Busy" as the sync name and a source event titled "Doctor Appointment" appears
-- **THEN** the target event has the title "Busy" but the same start/end times as the source event
+- **THEN** the target event has the title "Busy", the same start/end times as the source event, and description "Doctor Appointment"
 
 ### Requirement: Record sync mappings
 After successfully creating a target event, the system SHALL insert a row into the mapping table recording (source_calendar_id, source_event_id, target_calendar_id, target_event_id, synced_at). When a source event is deleted, the system SHALL remove the corresponding mapping row after deleting the target event.
