@@ -6,8 +6,6 @@ import '../calendar/calendar_service.dart';
 import '../settings/settings_service.dart';
 import '../permissions/permission_service.dart';
 
-final _notifications = FlutterLocalNotificationsPlugin();
-
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
@@ -43,31 +41,36 @@ void callbackDispatcher() {
           body += ' + ${result.errors.length} errors';
         }
 
-        await _notifications
-            .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin>()
-            ?.createNotificationChannel(
-              const AndroidNotificationChannel(
-                'calendar_sync',
-                'Calendar Sync',
-                importance: Importance.defaultImportance,
-              ),
-            );
-        await _notifications.show(
-          0,
-          'Calendar Sync',
-          body,
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'calendar_sync',
-              'Calendar Sync',
-              importance: Importance.defaultImportance,
-            ),
-          ),
-        );
+        await _showNotification(body);
       }
     } catch (_) {}
 
     return true;
   });
+}
+
+Future<void> _showNotification(String body) async {
+  final notifications = FlutterLocalNotificationsPlugin();
+  await notifications
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'calendar_sync',
+          'Calendar Sync',
+          importance: Importance.defaultImportance,
+        ),
+      );
+  await notifications.show(
+    0,
+    'Calendar Sync',
+    body,
+    const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'calendar_sync',
+        'Calendar Sync',
+        importance: Importance.defaultImportance,
+      ),
+    ),
+  );
 }
