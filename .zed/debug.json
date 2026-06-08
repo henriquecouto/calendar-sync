@@ -7,20 +7,4 @@
     "program": "$ZED_WORKTREE_ROOT/lib/main.dart",
     "cwd": "$ZED_WORKTREE_ROOT",
   },
-  {
-    "label": "Flutter Profile",
-    "adapter": "Dart",
-    "request": "launch",
-    "program": "$ZED_WORKTREE_ROOT/lib/main.dart",
-    "cwd": "$ZED_WORKTREE_ROOT",
-    "flutterMode": "profile",
-  },
-  {
-    "label": "Flutter Release",
-    "adapter": "Dart",
-    "request": "launch",
-    "program": "$ZED_WORKTREE_ROOT/lib/main.dart",
-    "cwd": "$ZED_WORKTREE_ROOT",
-    "flutterMode": "release",
-  },
 ]
