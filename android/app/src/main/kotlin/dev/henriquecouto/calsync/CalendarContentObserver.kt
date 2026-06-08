@@ -61,7 +61,7 @@ class CalendarContentObserver(
             manager.createNotificationChannel(channel)
 
             val notification = NotificationCompat.Builder(ctx, "calendar_sync")
-                .setSmallIcon(android.R.drawable.ic_popup_sync)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle("Calendar Sync")
                 .setContentText(summary)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
