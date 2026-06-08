@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 import 'permissions/permission_gate.dart';
 import 'settings/settings_service.dart';
@@ -12,6 +13,18 @@ import 'background/sync_task.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Workmanager().initialize(callbackDispatcher);
+
+  final notifications = FlutterLocalNotificationsPlugin();
+  await notifications
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'calendar_sync',
+          'Calendar Sync',
+          importance: Importance.defaultImportance,
+        ),
+      );
 
   const channel = MethodChannel('com.example.calendar_sync/calendar_observer');
   channel.setMethodCallHandler((call) async {
