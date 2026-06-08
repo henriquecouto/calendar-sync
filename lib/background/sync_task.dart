@@ -61,16 +61,16 @@ Future<void> _showNotification(String body) async {
           importance: Importance.defaultImportance,
         ),
       );
-  await notifications.show(
-    0,
-    'Calendar Sync',
-    body,
-    const NotificationDetails(
-      android: AndroidNotificationDetails(
-        'calendar_sync',
-        'Calendar Sync',
-        importance: Importance.defaultImportance,
-      ),
-    ),
-  );
+      await notifications.show(
+          id: 0,
+          title: 'Calendar Sync',
+          body: body,
+          notificationDetails: const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'calendar_sync',
+              'Calendar Sync',
+              importance: Importance.defaultImportance,
+            ),
+          ),
+        );
 }
