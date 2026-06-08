@@ -1,4 +1,4 @@
-package com.example.calendar_sync
+package dev.henriquecouto.calsync
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -19,7 +19,7 @@ class CalendarContentObserver(
         FlutterEngineHolder.binaryMessenger?.let {
             MethodChannel(
                 it,
-                "com.example.calendar_sync/calendar_observer",
+                "dev.henriquecouto.calsync/calendar_observer",
             ).invokeMethod("onCalendarChanged", null)
         }
         Handler(Looper.getMainLooper()).postDelayed({

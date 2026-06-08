@@ -1,4 +1,4 @@
-package com.example.calendar_sync
+package dev.henriquecouto.calsync
 
 import android.os.Bundle
 import androidx.work.ExistingPeriodicWorkPolicy

@@ -13,7 +13,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Workmanager().initialize(callbackDispatcher);
 
-  const channel = MethodChannel('com.example.calendar_sync/calendar_observer');
+  const channel = MethodChannel('dev.henriquecouto.calsync/calendar_observer');
   channel.setMethodCallHandler((call) async {
     if (call.method == 'onCalendarChanged') {
       final settings = SettingsService();
@@ -49,7 +49,7 @@ class _SyncedApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Calendar Sync',
+      title: 'CalSync',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -185,7 +185,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Calendar Sync'), centerTitle: true),
+      appBar: AppBar(title: const Text('CalSync'), centerTitle: true),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Padding(

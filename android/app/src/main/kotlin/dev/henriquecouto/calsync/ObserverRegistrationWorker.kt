@@ -1,4 +1,4 @@
-package com.example.calendar_sync
+package dev.henriquecouto.calsync
 
 import android.content.Context
 import androidx.work.Worker
