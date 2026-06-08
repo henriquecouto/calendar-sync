@@ -100,7 +100,10 @@ class _HomePageState extends State<HomePage> {
       _targetCalendarId = targetId;
       _intervalMinutes = interval;
       _calendars = calendars
-          .map((c) => _CalendarItem(c.id ?? '', c.name ?? 'Unknown'))
+          .map((c) => _CalendarItem(
+                c.id ?? '',
+                c.name?.isNotEmpty == true ? c.name! : (c.accountName ?? 'Unknown'),
+              ))
           .toList();
       _loading = false;
     });
