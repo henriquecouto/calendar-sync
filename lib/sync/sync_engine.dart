@@ -73,6 +73,7 @@ class SyncEngine {
           syncEventName,
           event.start!,
           event.end!,
+          description: event.title,
         );
 
         if (targetEventId == null) {

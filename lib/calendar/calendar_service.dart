@@ -28,13 +28,15 @@ class CalendarService {
     String calendarId,
     String title,
     TZDateTime start,
-    TZDateTime end,
-  ) async {
+    TZDateTime end, {
+    String? description,
+  }) async {
     final event = Event(
       calendarId,
       title: title,
       start: start,
       end: end,
+      description: description,
     );
     final result = await _plugin.createOrUpdateEvent(event);
     if (result != null && result.isSuccess) {
