@@ -10,7 +10,9 @@ class ObserverRegistrationWorker(
 ) : Worker(context, params) {
 
     override fun doWork(): Result {
-        CalendarContentObserver.register(applicationContext)
+        try {
+            CalendarContentObserver.register(applicationContext)
+        } catch (_: SecurityException) {}
         return Result.success()
     }
 }

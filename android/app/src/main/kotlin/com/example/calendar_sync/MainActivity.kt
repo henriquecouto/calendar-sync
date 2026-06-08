@@ -10,7 +10,9 @@ import java.util.concurrent.TimeUnit
 class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        CalendarContentObserver.register(applicationContext)
+        try {
+            CalendarContentObserver.register(applicationContext)
+        } catch (_: SecurityException) {}
         flutterEngine?.let { engine ->
             CalendarContentObserver.FlutterEngineHolder.binaryMessenger =
                 engine.dartExecutor.binaryMessenger
