@@ -17,6 +17,7 @@ class MappingDatabase {
   static const _statusDeleted = 'deleted';
   static const _statusSkipped = 'skipped';
   static const _statusErrors = 'errors';
+  static const _statusUpdated = 'updated';
 
   Database? _db;
 
@@ -30,7 +31,7 @@ class MappingDatabase {
     final path = join(dbPath, 'calendar_sync.db');
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE $_tableName (
@@ -50,7 +51,8 @@ class MappingDatabase {
             $_statusSynced INTEGER NOT NULL,
             $_statusDeleted INTEGER NOT NULL,
             $_statusSkipped INTEGER NOT NULL,
-            $_statusErrors INTEGER NOT NULL
+            $_statusErrors INTEGER NOT NULL,
+            $_statusUpdated INTEGER NOT NULL
           )
         ''');
       },
@@ -63,9 +65,13 @@ class MappingDatabase {
               $_statusSynced INTEGER NOT NULL,
               $_statusDeleted INTEGER NOT NULL,
               $_statusSkipped INTEGER NOT NULL,
-              $_statusErrors INTEGER NOT NULL
+              $_statusErrors INTEGER NOT NULL,
+              $_statusUpdated INTEGER NOT NULL
             )
           ''');
+        }
+        if (oldVersion < 3) {
+          await db.execute('ALTER TABLE $_statusTable ADD COLUMN $_statusUpdated INTEGER NOT NULL DEFAULT 0');
         }
       },
     );
@@ -102,7 +108,7 @@ class MappingDatabase {
         _columnTargetEventId: targetEventId,
         _columnSyncedAt: syncedAt,
       },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
@@ -131,6 +137,7 @@ class MappingDatabase {
     required int synced,
     required int deleted,
     required int skipped,
+    required int updated,
     required int errors,
   }) async {
     final db = await database;
@@ -139,6 +146,7 @@ class MappingDatabase {
       _statusSynced: synced,
       _statusDeleted: deleted,
       _statusSkipped: skipped,
+      _statusUpdated: updated,
       _statusErrors: errors,
     });
     final count = (await db.rawQuery('SELECT COUNT(*) AS cnt FROM $_statusTable')).first['cnt'] as int;

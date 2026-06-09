@@ -18,6 +18,7 @@ class SyncEngine {
     final synced = <String>[];
     final skipped = <String>[];
     final deleted = <String>[];
+    final updated = <String>[];
     final errors = <String>[];
 
     final sourceEvents = await _calendarService.listEvents(sourceCalendarId);
@@ -59,7 +60,56 @@ class SyncEngine {
         );
 
         if (alreadySynced) {
-          skipped.add(eventId);
+          final mapping = mappings.cast<Map<String, Object?>>().firstWhere(
+            (m) => m['source_event_id'] == eventId,
+          );
+          final targetEventId = mapping['target_event_id'] as String;
+
+          final targetEvent = await _calendarService.getEvent(
+            targetCalendarId,
+            targetEventId,
+          );
+
+          if (targetEvent == null || event.start == null || event.end == null) {
+            skipped.add(eventId);
+            continue;
+          }
+
+          final timeChanged = event.start!.millisecondsSinceEpoch !=
+                  targetEvent.start!.millisecondsSinceEpoch ||
+              event.end!.millisecondsSinceEpoch !=
+                  targetEvent.end!.millisecondsSinceEpoch;
+          final titleChanged = event.title != targetEvent.description;
+
+          if (!timeChanged && !titleChanged) {
+            skipped.add(eventId);
+            continue;
+          }
+
+          final newTargetEventId = await _calendarService.createEvent(
+            targetCalendarId,
+            syncEventName,
+            event.start!,
+            event.end!,
+            description: event.title,
+          );
+
+          if (newTargetEventId == null) {
+            errors.add('$eventId: failed to create replacement');
+            continue;
+          }
+
+          await _calendarService.deleteEvent(targetCalendarId, targetEventId);
+
+          await _mappingDb.insertMapping(
+            sourceCalendarId: sourceCalendarId,
+            sourceEventId: eventId,
+            targetCalendarId: targetCalendarId,
+            targetEventId: newTargetEventId,
+            syncedAt: TZDateTime.now(local).toString(),
+          );
+
+          updated.add(eventId);
           continue;
         }
 
@@ -99,6 +149,7 @@ class SyncEngine {
       synced: UnmodifiableListView(synced),
       skipped: UnmodifiableListView(skipped),
       deleted: UnmodifiableListView(deleted),
+      updated: UnmodifiableListView(updated),
       errors: UnmodifiableListView(errors),
     );
   }
@@ -108,12 +159,14 @@ class SyncResult {
   final UnmodifiableListView<String> synced;
   final UnmodifiableListView<String> skipped;
   final UnmodifiableListView<String> deleted;
+  final UnmodifiableListView<String> updated;
   final UnmodifiableListView<String> errors;
 
   const SyncResult({
     required this.synced,
     required this.skipped,
     required this.deleted,
+    required this.updated,
     required this.errors,
   });
 }

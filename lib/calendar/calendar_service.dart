@@ -45,6 +45,14 @@ class CalendarService {
     return null;
   }
 
+  Future<Event?> getEvent(String calendarId, String eventId) async {
+    final events = await listEvents(calendarId);
+    for (final e in events) {
+      if (e.eventId == eventId) return e;
+    }
+    return null;
+  }
+
   Future<bool> deleteEvent(String calendarId, String eventId) async {
     final result = await _plugin.deleteEvent(calendarId, eventId);
     return result.isSuccess && (result.data ?? false);
