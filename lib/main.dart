@@ -6,6 +6,7 @@ import 'settings/settings_service.dart';
 import 'calendar/calendar_service.dart';
 import 'sync/mapping_database.dart';
 import 'sync/sync_engine.dart';
+import 'sync/sync_status_screen.dart';
 import 'background/sync_task.dart';
 
 void main() async {
@@ -157,6 +158,14 @@ class _HomePageState extends State<HomePage> {
       syncEventName: syncName,
     );
 
+    await _mappingDb.insertStatus(
+      timestamp: DateTime.now().toIso8601String(),
+      synced: result.synced.length,
+      deleted: result.deleted.length,
+      skipped: result.skipped.length,
+      errors: result.errors.length,
+    );
+
     setState(() {
       _status =
           'Synced: ${result.synced.length}, '
@@ -175,7 +184,23 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('CalSync'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('CalSync'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SyncStatusScreen(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Padding(

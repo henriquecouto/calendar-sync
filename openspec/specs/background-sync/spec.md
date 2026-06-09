@@ -74,24 +74,16 @@ Manual "Sync Now" and background sync SHALL coexist without conflicts. Both use 
 - **THEN** both operations complete independently — the mapping table's UNIQUE constraints prevent duplicates
 
 ### Requirement: Show notification on sync activity
-The system SHALL display a local Android notification summarizing the results after each background sync cycle that produces changes (synced > 0 or deleted > 0). Silent syncs with no activity SHALL NOT produce a notification. Callbacks that exit early due to sync being disabled SHALL NOT produce a notification.
+The system SHALL display a local Android "Syncing calendars..." ongoing notification when a reactive background sync is triggered by a calendar change. The notification SHALL be dismissed when the sync completes. Sync results SHALL NOT appear in the notification — users view results in the sync history screen. Periodic fallback syncs SHALL NOT display a notification. The progress notification SHALL NOT appear for sync skipped due to disabled toggle, missing permissions, or unconfigured settings.
 
-#### Scenario: Sync with new events shows notification
-- **WHEN** a background sync cycle creates 2 new events and deletes 1 orphaned event
-- **THEN** a notification appears with the summary "Synced: 2, Deleted: 1, Skipped: 0"
+#### Scenario: Reactive sync shows progress notification
+- **WHEN** the CalendarSyncJobService detects a calendar change
+- **THEN** an ongoing "Syncing calendars..." notification appears immediately
 
-#### Scenario: Sync with only skipped events shows no notification
-- **WHEN** a background sync cycle finds all source events are already synced (synced=0, deleted=0)
-- **THEN** no notification is shown
+#### Scenario: Notification dismissed on sync completion
+- **WHEN** the background sync completes (signal written to SharedPreferences)
+- **THEN** the progress notification is dismissed
 
-#### Scenario: Silent skip shows no notification
-- **WHEN** the background task skips because permissions are denied or settings are unconfigured
-- **THEN** no notification is shown
-
-#### Scenario: Sync with errors shows notification with error count
-- **WHEN** a background sync cycle creates 1 event but fails to create 2 others
-- **THEN** a notification appears with the summary "Synced: 1, Deleted: 0, Skipped: 0 + 2 errors"
-
-#### Scenario: Callback exits due to disabled sync shows no notification
-- **WHEN** a background sync callback fires but exits because sync is disabled
+#### Scenario: No notification for skipped sync
+- **WHEN** the background task skips because sync disabled, permissions denied, or settings unconfigured
 - **THEN** no notification is shown

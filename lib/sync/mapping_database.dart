@@ -10,6 +10,14 @@ class MappingDatabase {
   static const _columnTargetEventId = 'target_event_id';
   static const _columnSyncedAt = 'synced_at';
 
+  static const _statusTable = 'sync_status';
+  static const _statusId = 'id';
+  static const _statusTimestamp = 'timestamp';
+  static const _statusSynced = 'synced';
+  static const _statusDeleted = 'deleted';
+  static const _statusSkipped = 'skipped';
+  static const _statusErrors = 'errors';
+
   Database? _db;
 
   Future<Database> get database async {
@@ -22,7 +30,7 @@ class MappingDatabase {
     final path = join(dbPath, 'calendar_sync.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE $_tableName (
@@ -35,6 +43,30 @@ class MappingDatabase {
             UNIQUE($_columnSourceCalendarId, $_columnSourceEventId)
           )
         ''');
+        await db.execute('''
+          CREATE TABLE $_statusTable (
+            $_statusId INTEGER PRIMARY KEY AUTOINCREMENT,
+            $_statusTimestamp TEXT NOT NULL,
+            $_statusSynced INTEGER NOT NULL,
+            $_statusDeleted INTEGER NOT NULL,
+            $_statusSkipped INTEGER NOT NULL,
+            $_statusErrors INTEGER NOT NULL
+          )
+        ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE $_statusTable (
+              $_statusId INTEGER PRIMARY KEY AUTOINCREMENT,
+              $_statusTimestamp TEXT NOT NULL,
+              $_statusSynced INTEGER NOT NULL,
+              $_statusDeleted INTEGER NOT NULL,
+              $_statusSkipped INTEGER NOT NULL,
+              $_statusErrors INTEGER NOT NULL
+            )
+          ''');
+        }
       },
     );
   }
@@ -91,6 +123,44 @@ class MappingDatabase {
       _tableName,
       where: '$_columnId = ?',
       whereArgs: [id],
+    );
+  }
+
+  Future<void> insertStatus({
+    required String timestamp,
+    required int synced,
+    required int deleted,
+    required int skipped,
+    required int errors,
+  }) async {
+    final db = await database;
+    await db.insert(_statusTable, {
+      _statusTimestamp: timestamp,
+      _statusSynced: synced,
+      _statusDeleted: deleted,
+      _statusSkipped: skipped,
+      _statusErrors: errors,
+    });
+    final count = (await db.rawQuery('SELECT COUNT(*) AS cnt FROM $_statusTable')).first['cnt'] as int;
+    if (count > 20) {
+      final oldest = await db.query(
+        _statusTable,
+        columns: [_statusId],
+        orderBy: '$_statusId ASC',
+        limit: count - 20,
+      );
+      for (final row in oldest) {
+        await db.delete(_statusTable, where: '$_statusId = ?', whereArgs: [row[_statusId]]);
+      }
+    }
+  }
+
+  Future<List<Map<String, Object?>>> getStatusHistory({int limit = 20}) async {
+    final db = await database;
+    return db.query(
+      _statusTable,
+      orderBy: '$_statusId DESC',
+      limit: limit,
     );
   }
 }
