@@ -31,10 +31,12 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
   String _formatCounts(Map<String, Object?> entry) {
     final synced = entry['synced'] as int;
     final deleted = entry['deleted'] as int;
+    final updated = entry['updated'] as int;
     final skipped = entry['skipped'] as int;
     final errors = entry['errors'] as int;
     final parts = <String>[];
     if (synced > 0) parts.add('Synced: $synced');
+    if (updated > 0) parts.add('Updated: $updated');
     if (deleted > 0) parts.add('Deleted: $deleted');
     if (skipped > 0) parts.add('Skipped: $skipped');
     if (errors > 0) parts.add('$errors errors');
