@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit
 class CalendarSyncJobService : JobService() {
     override fun onStartJob(params: JobParameters?): Boolean {
         schedule(applicationContext)
+        showProgressNotification()
 
         val request = OneOffTaskRequest(
             uniqueName = "calendar_sync_reactive",
@@ -31,8 +32,8 @@ class CalendarSyncJobService : JobService() {
         WorkManagerWrapper(applicationContext).enqueueOneOffTask(request)
 
         Handler(Looper.getMainLooper()).postDelayed({
-            showPendingNotification()
-        }, 30_000L)
+            checkAndDismiss()
+        }, 5_000L)
 
         return false
     }
@@ -41,30 +42,36 @@ class CalendarSyncJobService : JobService() {
         return false
     }
 
-    private fun showPendingNotification() {
-        val prefs = applicationContext.getSharedPreferences(
-            "FlutterSharedPreferences", Context.MODE_PRIVATE
-        )
-        val summary = prefs.getString("flutter.pending_sync_notification", null) ?: return
-
+    private fun showProgressNotification() {
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(
             "calendar_sync",
             "Calendar Sync",
-            NotificationManager.IMPORTANCE_DEFAULT,
+            NotificationManager.IMPORTANCE_LOW,
         )
         manager.createNotificationChannel(channel)
 
         val notification = NotificationCompat.Builder(applicationContext, "calendar_sync")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Calendar Sync")
-            .setContentText(summary)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setAutoCancel(true)
+            .setContentText("Syncing calendars...")
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
         manager.notify(1, notification)
-        prefs.edit().remove("flutter.pending_sync_notification").apply()
+    }
+
+    private fun checkAndDismiss() {
+        val prefs = applicationContext.getSharedPreferences(
+            "FlutterSharedPreferences", Context.MODE_PRIVATE
+        )
+        val done = prefs.getString("flutter.pending_sync_notification", null)
+        if (done != null) {
+            val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.cancel(1)
+            prefs.edit().remove("flutter.pending_sync_notification").apply()
+        }
     }
 
     companion object {

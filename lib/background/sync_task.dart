@@ -12,20 +12,32 @@ void callbackDispatcher() {
     try {
       final settings = SettingsService();
       final syncEnabled = await settings.syncEnabled;
-      if (!syncEnabled) return true;
+      if (!syncEnabled) {
+        await _logStatus(0, 0, 0, 0);
+        await _signalDone();
+        return true;
+      }
 
       final interval = await settings.syncIntervalMinutes;
-      if (interval == 0) return true;
+      if (interval == 0) {
+        await _logStatus(0, 0, 0, 0);
+        await _signalDone();
+        return true;
+      }
 
       final sourceId = await settings.sourceCalendarId;
       final targetId = await settings.targetCalendarId;
       final syncName = await settings.syncEventName;
       if (sourceId == null || targetId == null || syncName.isEmpty) {
+        await _logStatus(0, 0, 0, 0);
+        await _signalDone();
         return true;
       }
 
       final permService = PermissionService();
       if (!await permService.areCalendarPermissionsGranted) {
+        await _logStatus(0, 0, 0, 0);
+        await _signalDone();
         return true;
       }
 
@@ -36,19 +48,32 @@ void callbackDispatcher() {
         syncEventName: syncName,
       );
 
-      if (result.synced.isNotEmpty || result.deleted.isNotEmpty) {
-        var body = 'Synced: ${result.synced.length}, '
-            'Deleted: ${result.deleted.length}, '
-            'Skipped: ${result.skipped.length}';
-        if (result.errors.isNotEmpty) {
-          body += ' + ${result.errors.length} errors';
-        }
+      await _logStatus(
+        result.synced.length,
+        result.deleted.length,
+        result.skipped.length,
+        result.errors.length,
+      );
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('pending_sync_notification', body);
-      }
+      await _signalDone();
     } catch (_) {}
 
     return true;
   });
+}
+
+Future<void> _logStatus(int synced, int deleted, int skipped, int errors) async {
+  final db = MappingDatabase();
+  await db.insertStatus(
+    timestamp: DateTime.now().toIso8601String(),
+    synced: synced,
+    deleted: deleted,
+    skipped: skipped,
+    errors: errors,
+  );
+}
+
+Future<void> _signalDone() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('pending_sync_notification', '1');
 }
