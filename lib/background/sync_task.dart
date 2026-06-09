@@ -13,14 +13,14 @@ void callbackDispatcher() {
       final settings = SettingsService();
       final syncEnabled = await settings.syncEnabled;
       if (!syncEnabled) {
-        await _logStatus(0, 0, 0, 0);
+        await _logStatus(0, 0, 0, 0, 0);
         await _signalDone();
         return true;
       }
 
       final interval = await settings.syncIntervalMinutes;
       if (interval == 0) {
-        await _logStatus(0, 0, 0, 0);
+        await _logStatus(0, 0, 0, 0, 0);
         await _signalDone();
         return true;
       }
@@ -29,14 +29,14 @@ void callbackDispatcher() {
       final targetId = await settings.targetCalendarId;
       final syncName = await settings.syncEventName;
       if (sourceId == null || targetId == null || syncName.isEmpty) {
-        await _logStatus(0, 0, 0, 0);
+        await _logStatus(0, 0, 0, 0, 0);
         await _signalDone();
         return true;
       }
 
       final permService = PermissionService();
       if (!await permService.areCalendarPermissionsGranted) {
-        await _logStatus(0, 0, 0, 0);
+        await _logStatus(0, 0, 0, 0, 0);
         await _signalDone();
         return true;
       }
@@ -52,6 +52,7 @@ void callbackDispatcher() {
         result.synced.length,
         result.deleted.length,
         result.skipped.length,
+        result.updated.length,
         result.errors.length,
       );
 
@@ -62,13 +63,14 @@ void callbackDispatcher() {
   });
 }
 
-Future<void> _logStatus(int synced, int deleted, int skipped, int errors) async {
+Future<void> _logStatus(int synced, int deleted, int skipped, int updated, int errors) async {
   final db = MappingDatabase();
   await db.insertStatus(
     timestamp: DateTime.now().toIso8601String(),
     synced: synced,
     deleted: deleted,
     skipped: skipped,
+    updated: updated,
     errors: errors,
   );
 }

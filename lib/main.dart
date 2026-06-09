@@ -163,6 +163,7 @@ class _HomePageState extends State<HomePage> {
       synced: result.synced.length,
       deleted: result.deleted.length,
       skipped: result.skipped.length,
+      updated: result.updated.length,
       errors: result.errors.length,
     );
 
@@ -170,6 +171,7 @@ class _HomePageState extends State<HomePage> {
       _status =
           'Synced: ${result.synced.length}, '
           'Deleted: ${result.deleted.length}, '
+          'Updated: ${result.updated.length}, '
           'Skipped: ${result.skipped.length}, '
           'Errors: ${result.errors.length}';
     });
