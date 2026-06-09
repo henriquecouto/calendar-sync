@@ -1,0 +1,13 @@
+Calendar Sync automatically copies events from one local calendar to another on your device. When an event appears in your source calendar, a corresponding event is created in your target calendar using a name you choose.
+
+Perfect for sharing availability across personal and work calendars, or keeping multiple calendars in sync without manual entry.
+
+Features:
+- Select any local device calendar as source or target
+- Customize the synced event name (e.g., "Busy")
+- Original event title is preserved in the description
+- Sync runs automatically in the background at your chosen interval
+- Changes to already-synced events are detected and propagated
+- Deletions in the source calendar are mirrored to the target
+
+No account required. All data stays on your device.
