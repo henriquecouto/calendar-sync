@@ -21,7 +21,9 @@ jobs:
         id: tag_check
         run: |
           VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | xargs)
+          VERSION_CODE=$(echo "$VERSION" | cut -d+ -f2)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
 
           if git rev-parse "v$VERSION" >/dev/null 2>&1; then
             TAG_SHA=$(git rev-list -n 1 "v$VERSION")
@@ -57,13 +59,26 @@ jobs:
         if: steps.tag_check.outputs.should_release == 'true'
         run: flutter build appbundle --release
 
-      - name: Create and push tag
+      - name: Generate changelog
+        if: steps.tag_check.outputs.should_release == 'true'
+        run: |
+          mkdir -p fastlane/metadata/android/en-US/changelogs
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            git log --format="- %s" "$PREV_TAG..HEAD" > "fastlane/metadata/android/en-US/changelogs/${{ steps.tag_check.outputs.version_code }}.txt"
+          else
+            git log --format="- %s" > "fastlane/metadata/android/en-US/changelogs/${{ steps.tag_check.outputs.version_code }}.txt"
+          fi
+
+      - name: Commit changelog and create tag
         if: steps.tag_check.outputs.should_release == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "fastlane/metadata/android/en-US/changelogs/${{ steps.tag_check.outputs.version_code }}.txt"
+          git commit -m "Add changelog for v${{ steps.tag_check.outputs.version }}" || echo "No changes to commit"
           git tag "v${{ steps.tag_check.outputs.version }}"
-          git push origin "v${{ steps.tag_check.outputs.version }}"
+          git push origin HEAD:main "v${{ steps.tag_check.outputs.version }}"
 
       - name: Create GitHub Release
         if: steps.tag_check.outputs.should_release == 'true'
@@ -73,4 +88,5 @@ jobs:
           files: |
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
+            fastlane/metadata/android/en-US/changelogs/${{ steps.tag_check.outputs.version_code }}.txt
           generate_release_notes: true

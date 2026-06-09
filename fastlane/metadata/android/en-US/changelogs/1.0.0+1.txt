@@ -1,0 +1,9 @@
+Initial release of Calendar Sync.
+
+- Sync events between two local calendars
+- Customizable event name for synced entries
+- Background periodic sync
+- Manual sync button
+- Detect and propagate changes to already-synced events
+- Mirror deletions from source to target calendar
+- Sync toggle to pause/resume all sync activity
