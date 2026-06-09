@@ -17,6 +17,9 @@ void main() async {
   channel.setMethodCallHandler((call) async {
     if (call.method == 'onCalendarChanged') {
       final settings = SettingsService();
+      final syncEnabled = await settings.syncEnabled;
+      if (!syncEnabled) return;
+
       final interval = await settings.syncIntervalMinutes;
       if (interval == 0) return;
 
@@ -74,6 +77,7 @@ class _HomePageState extends State<HomePage> {
   String? _sourceCalendarId;
   String? _targetCalendarId;
   int _intervalMinutes = 60;
+  bool _syncEnabled = true;
   final _syncNameController = TextEditingController();
 
   List<_CalendarItem> _calendars = [];
@@ -91,6 +95,7 @@ class _HomePageState extends State<HomePage> {
     final targetId = await _settings.targetCalendarId;
     final syncName = await _settings.syncEventName;
     final interval = await _settings.syncIntervalMinutes;
+    final syncEnabled = await _settings.syncEnabled;
     _syncNameController.text = syncName;
 
     final calendars = await _calendarService.listCalendars();
@@ -99,6 +104,7 @@ class _HomePageState extends State<HomePage> {
       _sourceCalendarId = sourceId;
       _targetCalendarId = targetId;
       _intervalMinutes = interval;
+      _syncEnabled = syncEnabled;
       _calendars = calendars
           .map((c) => _CalendarItem(
                 c.id ?? '',
@@ -148,6 +154,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _sync() async {
+    if (!_syncEnabled) return;
+
     if (_sourceCalendarId == null || _targetCalendarId == null) {
       setState(() => _status = 'Select both calendars first.');
       return;
@@ -252,12 +260,30 @@ class _HomePageState extends State<HomePage> {
                     'The interval above is a fallback only.',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Sync enabled'),
+                    value: _syncEnabled,
+                    onChanged: (val) async {
+                      await _settings.setSyncEnabled(val);
+                      setState(() => _syncEnabled = val);
+                    },
+                  ),
+                  const SizedBox(height: 8),
                   FilledButton.icon(
-                    onPressed: _sync,
+                    onPressed: _syncEnabled ? _sync : null,
                     icon: const Icon(Icons.sync),
                     label: const Text('Sync Now'),
                   ),
+                  if (!_syncEnabled) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Sync is disabled',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
                   if (_status.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Text(_status, textAlign: TextAlign.center),

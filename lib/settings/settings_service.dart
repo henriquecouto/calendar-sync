@@ -5,6 +5,7 @@ class SettingsService {
   static const _keyTargetCalendarId = 'target_calendar_id';
   static const _keySyncEventName = 'sync_event_name';
   static const _keySyncIntervalMinutes = 'sync_interval_minutes';
+  static const _keySyncEnabled = 'sync_enabled';
 
   Future<String?> get sourceCalendarId async {
     final prefs = await SharedPreferences.getInstance();
@@ -64,5 +65,15 @@ class SettingsService {
   Future<void> clearSyncIntervalMinutes() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keySyncIntervalMinutes);
+  }
+
+  Future<bool> get syncEnabled async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keySyncEnabled) ?? true;
+  }
+
+  Future<void> setSyncEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keySyncEnabled, value);
   }
 }

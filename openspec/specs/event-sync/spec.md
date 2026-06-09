@@ -57,3 +57,18 @@ The system SHALL execute a sync cycle: list source events, query mapping table, 
 #### Scenario: Full sync with both additions and deletions
 - **WHEN** the source calendar had 4 synced events and now has 3 (1 deleted, 1 new added, 2 unchanged)
 - **THEN** the system deletes 1 target event, creates 1 new target event, and skips 2
+
+### Requirement: Manual sync gated on sync enabled
+The system SHALL disable the "Sync Now" button and prevent manual sync execution when sync is disabled. When sync is re-enabled, the button SHALL become active again but SHALL NOT automatically trigger a sync.
+
+#### Scenario: Sync Now button disabled when sync is off
+- **WHEN** sync is disabled
+- **THEN** the "Sync Now" button is visually disabled and does not respond to taps
+
+#### Scenario: Sync Now button re-enabled when sync is turned on
+- **WHEN** sync is re-enabled
+- **THEN** the "Sync Now" button becomes active but no sync is triggered automatically
+
+#### Scenario: Manual sync proceeds when sync is enabled
+- **WHEN** the user presses "Sync Now" and sync is enabled
+- **THEN** a full sync cycle executes normally
