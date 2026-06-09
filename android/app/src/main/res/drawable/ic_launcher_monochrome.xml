@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+
+    <group android:fillType="evenOdd">
+
+        <!-- Combined outer silhouette: calendar shell + rings (single path, no overlaps) -->
+        <path
+            android:pathData="M78,24 L82,24 A6,6 0 0,1 88,30 L88,40 L136,40 L136,30 A6,6 0 0,1 142,24 L146,24 A6,6 0 0,1 152,30 L152,40 L156,40 A28,28 0 0,1 184,68 L184,156 A28,28 0 0,1 156,184 L68,184 A28,28 0 0,1 40,156 L40,68 A28,28 0 0,1 68,40 L72,40 L72,30 A6,6 0 0,1 78,24 Z"
+            android:fillColor="#000000"/>
+
+        <!-- Sync arrows (thick stroke for silhouette visibility) -->
+        <group
+            android:translateX="118"
+            android:translateY="118"
+            android:scaleX="3.5"
+            android:scaleY="3.5">
+            <path
+                android:pathData="M7.3,23.7L2.6,19L7.3,14.3 M2.6,19H16C19.3,19 22,16.3 22,13V10"
+                android:strokeColor="#000000"
+                android:strokeWidth="3.0"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:fillColor="#00000000"/>
+            <path
+                android:pathData="M16.7,0.3L21.4,5L16.7,9.7 M21.4,5H8C4.7,5 2,7.7 2,11V14"
+                android:strokeColor="#000000"
+                android:strokeWidth="3.0"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:fillColor="#00000000"/>
+        </group>
+
+        <!-- Dots as cutouts (evenOdd: any shape inside outer boundary = hole) -->
+        <path
+            android:pathData="M77,116 A7,7 0 1,0 91,116 A7,7 0 1,0 77,116 Z"
+            android:fillColor="#000000"/>
+        <path
+            android:pathData="M105,116 A7,7 0 1,0 119,116 A7,7 0 1,0 105,116 Z"
+            android:fillColor="#000000"/>
+        <path
+            android:pathData="M133,116 A7,7 0 1,0 147,116 A7,7 0 1,0 133,116 Z"
+            android:fillColor="#000000"/>
+        <path
+            android:pathData="M77,144 A7,7 0 1,0 91,144 A7,7 0 1,0 77,144 Z"
+            android:fillColor="#000000"/>
+        <path
+            android:pathData="M105,144 A7,7 0 1,0 119,144 A7,7 0 1,0 105,144 Z"
+            android:fillColor="#000000"/>
+
+    </group>
+</vector>

@@ -1,0 +1,57 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Calendar gradient -->
+    <linearGradient id="calendarGradient" x1="40" y1="40" x2="184" y2="184" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F8CFF"/>
+      <stop offset="1" stop-color="#2D6BFF"/>
+    </linearGradient>
+
+    <!-- Sync gradient -->
+    <linearGradient id="syncGradient" x1="120" y1="120" x2="208" y2="208" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D2FF"/>
+      <stop offset="1" stop-color="#00C98D"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Calendar -->
+  <rect x="40" y="40" width="144" height="144" rx="28" fill="url(#calendarGradient)"/>
+
+  <!-- Calendar rings -->
+  <rect x="72" y="24" width="16" height="40" rx="6" fill="#FFFFFF"/>
+  <rect x="136" y="24" width="16" height="40" rx="6" fill="#FFFFFF"/>
+
+  <!-- Calendar body -->
+  <rect x="40" y="84" width="144" height="100" rx="22" fill="#FFFFFF"/>
+
+  <!-- Calendar dots -->
+  <circle cx="84" cy="116" r="7" fill="#DDE7FF"/>
+  <circle cx="112" cy="116" r="7" fill="#DDE7FF"/>
+  <circle cx="140" cy="116" r="7" fill="#DDE7FF"/>
+
+  <circle cx="84" cy="144" r="7" fill="#DDE7FF"/>
+  <circle cx="112" cy="144" r="7" fill="#DDE7FF"/>
+
+  <!-- Sync icon -->
+  <!-- Proporções e espaçamento preservados do SVG original -->
+  <g transform="translate(118 118) scale(3.5)">
+    <path
+      d="M7.3 23.7L2.6 19L7.3 14.3
+         M2.6 19H16
+         C19.3 19 22 16.3 22 13V10"
+      stroke="url(#syncGradient)"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="none"/>
+
+    <path
+      d="M16.7 0.3L21.4 5L16.7 9.7
+         M21.4 5H8
+         C4.7 5 2 7.7 2 11V14"
+      stroke="url(#syncGradient)"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="none"/>
+  </g>
+</svg>
