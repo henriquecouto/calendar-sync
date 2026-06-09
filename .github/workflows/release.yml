@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check tag existence
+        id: tag_check
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | xargs)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            TAG_SHA=$(git rev-list -n 1 "v$VERSION")
+            CURRENT_SHA=$(git rev-parse HEAD)
+            if [ "$TAG_SHA" = "$CURRENT_SHA" ]; then
+              echo "Tag v$VERSION already exists on this commit. Skipping release."
+              echo "should_release=false" >> $GITHUB_OUTPUT
+            else
+              echo "Error: Tag v$VERSION already exists on a different commit."
+              echo "Bump the version in pubspec.yaml and push again."
+              exit 1
+            fi
+          else
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Flutter
+        if: steps.tag_check.outputs.should_release == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        if: steps.tag_check.outputs.should_release == 'true'
+        run: flutter pub get
+
+      - name: Build APK
+        if: steps.tag_check.outputs.should_release == 'true'
+        run: flutter build apk --release
+
+      - name: Build App Bundle
+        if: steps.tag_check.outputs.should_release == 'true'
+        run: flutter build appbundle --release
+
+      - name: Create and push tag
+        if: steps.tag_check.outputs.should_release == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.tag_check.outputs.version }}"
+          git push origin "v${{ steps.tag_check.outputs.version }}"
+
+      - name: Create GitHub Release
+        if: steps.tag_check.outputs.should_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.tag_check.outputs.version }}
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+          generate_release_notes: true
