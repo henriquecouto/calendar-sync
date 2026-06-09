@@ -11,6 +11,9 @@ void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
     try {
       final settings = SettingsService();
+      final syncEnabled = await settings.syncEnabled;
+      if (!syncEnabled) return true;
+
       final interval = await settings.syncIntervalMinutes;
       if (interval == 0) return true;
 

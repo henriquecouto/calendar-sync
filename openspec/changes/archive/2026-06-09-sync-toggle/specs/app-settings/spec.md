@@ -1,10 +1,4 @@
-# App Settings
-
-## Purpose
-
-Persist user-configurable sync settings (source calendar, target calendar, event name, sync interval) across app restarts.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Save sync configuration
 The system SHALL persist five user-configurable settings: source calendar ID, target calendar ID, sync event name, sync interval in minutes, and sync enabled flag. These SHALL survive app restarts.
@@ -24,16 +18,7 @@ The system SHALL load the saved source calendar ID, target calendar ID, sync eve
 - **WHEN** values were previously saved
 - **THEN** loading returns the exact values that were saved
 
-### Requirement: Clear sync configuration
-The system SHALL allow the user to reset/clear all sync settings individually, including the sync interval.
-
-#### Scenario: Reset source calendar
-- **WHEN** the user clears the source calendar setting
-- **THEN** the source calendar ID returns to null without affecting other settings
-
-#### Scenario: Reset sync interval
-- **WHEN** the user clears the sync interval setting
-- **THEN** the sync interval returns to the default of 60 minutes
+## ADDED Requirements
 
 ### Requirement: Toggle sync enabled state
 The system SHALL allow the user to enable or disable all sync activity via a boolean setting. When disabled, no sync operations SHALL execute — manual, reactive, or periodic.
