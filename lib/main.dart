@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:workmanager/workmanager.dart';
 import 'permissions/permission_gate.dart';
 import 'settings/settings_service.dart';
@@ -12,26 +11,6 @@ import 'background/sync_task.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Workmanager().initialize(callbackDispatcher);
-
-  const channel = MethodChannel('dev.henriquecouto.calsync/calendar_observer');
-  channel.setMethodCallHandler((call) async {
-    if (call.method == 'onCalendarChanged') {
-      final settings = SettingsService();
-      final syncEnabled = await settings.syncEnabled;
-      if (!syncEnabled) return;
-
-      final interval = await settings.syncIntervalMinutes;
-      if (interval == 0) return;
-
-      await Workmanager().registerOneOffTask(
-        'calendar_sync_reactive',
-        'syncTask',
-        initialDelay: const Duration(seconds: 5),
-        existingWorkPolicy: ExistingWorkPolicy.replace,
-      );
-    }
-  });
-
   runApp(const CalendarSyncApp());
 }
 
