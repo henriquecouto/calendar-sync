@@ -133,4 +133,4 @@ Output: `build/app/outputs/flutter-apk/` or `build/app/outputs/bundle/`
 
 ## License
 
-[MIT](LICENSE) © Henrique Couto
+[GPL-3.0](LICENSE) © Henrique Couto
