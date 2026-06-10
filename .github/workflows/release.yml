@@ -23,18 +23,20 @@ jobs:
         id: tag_check
         run: |
           VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | xargs)
+          VERSION_NAME=$(echo "$VERSION" | cut -d+ -f1)
           VERSION_CODE=$(echo "$VERSION" | cut -d+ -f2)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
           echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
 
-          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
-            TAG_SHA=$(git rev-list -n 1 "v$VERSION")
+          if git rev-parse "v$VERSION_NAME" >/dev/null 2>&1; then
+            TAG_SHA=$(git rev-list -n 1 "v$VERSION_NAME")
             CURRENT_SHA=$(git rev-parse HEAD)
             if [ "$TAG_SHA" = "$CURRENT_SHA" ]; then
-              echo "Tag v$VERSION already exists on this commit. Skipping release."
+              echo "Tag v$VERSION_NAME already exists on this commit. Skipping release."
               echo "should_release=false" >> $GITHUB_OUTPUT
             else
-              echo "Error: Tag v$VERSION already exists on a different commit."
+              echo "Error: Tag v$VERSION_NAME already exists on a different commit."
               echo "Bump the version in pubspec.yaml and push again."
               exit 1
             fi
@@ -94,14 +96,14 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "fastlane/metadata/android/en-US/changelogs/${{ steps.tag_check.outputs.version_code }}.txt"
           git commit -m "Add changelog for v${{ steps.tag_check.outputs.version }}" || echo "No changes to commit"
-          git tag "v${{ steps.tag_check.outputs.version }}"
-          git push origin HEAD:main "v${{ steps.tag_check.outputs.version }}"
+          git tag "v${{ steps.tag_check.outputs.version_name }}"
+          git push origin HEAD:main "v${{ steps.tag_check.outputs.version_name }}"
 
       - name: Create GitHub Release
         if: steps.tag_check.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.tag_check.outputs.version }}
+          tag_name: v${{ steps.tag_check.outputs.version_name }}
           files: |
             build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
