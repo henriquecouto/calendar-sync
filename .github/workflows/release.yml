@@ -10,6 +10,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      flutter-version: '3.44.1'
 
     steps:
       - name: Checkout
@@ -44,16 +46,16 @@ jobs:
         if: steps.tag_check.outputs.should_release == 'true'
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          version: ${{ env.flutter-version }}
           cache: true
 
       - name: Install dependencies
         if: steps.tag_check.outputs.should_release == 'true'
         run: flutter pub get
 
-      - name: Build APK
+      - name: Build APKs (per ABI)
         if: steps.tag_check.outputs.should_release == 'true'
-        run: flutter build apk --release
+        run: flutter build apk --release --split-per-abi
 
       - name: Build App Bundle
         if: steps.tag_check.outputs.should_release == 'true'
@@ -86,7 +88,9 @@ jobs:
         with:
           tag_name: v${{ steps.tag_check.outputs.version }}
           files: |
-            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            build/app/outputs/flutter-apk/app-x86_64-release.apk
             build/app/outputs/bundle/release/app-release.aab
             fastlane/metadata/android/en-US/changelogs/${{ steps.tag_check.outputs.version_code }}.txt
           generate_release_notes: true
