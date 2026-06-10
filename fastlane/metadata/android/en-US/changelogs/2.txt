@@ -1,0 +1,3 @@
+- Update pubspec.yaml
+- Merge pull request #10 from henriquecouto/feat/fdroid-setup
+- feat: F-Droid metadata, changelog generation, and archive changes
