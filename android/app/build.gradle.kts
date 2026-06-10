@@ -60,6 +60,10 @@ android {
             )
         }
     }
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
 }
 
 val abiCodes = mapOf("armeabi-v7a" to 1, "arm64-v8a" to 2, "x86_64" to 3)
