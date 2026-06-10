@@ -1,0 +1,1 @@
+- Use version name only for tag (without +N), bump to 1.0.1+6
