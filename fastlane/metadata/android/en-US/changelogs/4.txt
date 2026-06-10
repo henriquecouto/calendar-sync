@@ -1,0 +1,2 @@
+- Configure release signing for reproducible builds
+- Remove changelog from release assets
