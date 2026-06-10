@@ -1,0 +1,2 @@
+- Bump version to 1.0.0+5
+- Disable dependency metadata in APK signing block
