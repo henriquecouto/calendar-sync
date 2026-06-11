@@ -1,0 +1,4 @@
+- Bump version from 1.0.1+6 to 1.1.0+7
+- Merge pull request #11 from henriquecouto/feature/dry-run
+- Add dry run sync feature
+- [skip ci] Change license from MIT to GPL-3.0
