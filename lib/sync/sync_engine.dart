@@ -4,6 +4,48 @@ import 'package:device_calendar/device_calendar.dart';
 import '../calendar/calendar_service.dart';
 import 'mapping_database.dart';
 
+class SyncPlan {
+  final List<ToCreateEntry> toCreate;
+  final List<ToUpdateEntry> toUpdate;
+  final List<Event> toSkip;
+  final List<Map<String, Object?>> toDelete;
+  final List<String> errors;
+
+  const SyncPlan({
+    required this.toCreate,
+    required this.toUpdate,
+    required this.toSkip,
+    required this.toDelete,
+    required this.errors,
+  });
+}
+
+class ToCreateEntry {
+  final Event sourceEvent;
+  final String projectedTitle;
+  final String projectedDescription;
+  final TZDateTime projectedStart;
+  final TZDateTime projectedEnd;
+
+  const ToCreateEntry({
+    required this.sourceEvent,
+    required this.projectedTitle,
+    required this.projectedDescription,
+    required this.projectedStart,
+    required this.projectedEnd,
+  });
+}
+
+class ToUpdateEntry {
+  final Event sourceEvent;
+  final Map<String, Object?> mapping;
+
+  const ToUpdateEntry({
+    required this.sourceEvent,
+    required this.mapping,
+  });
+}
+
 class SyncEngine {
   final CalendarService _calendarService;
   final MappingDatabase _mappingDb;
@@ -15,10 +57,51 @@ class SyncEngine {
     required String targetCalendarId,
     required String syncEventName,
   }) async {
-    final synced = <String>[];
-    final skipped = <String>[];
-    final deleted = <String>[];
-    final updated = <String>[];
+    final plan = await _classify(
+      sourceCalendarId: sourceCalendarId,
+      targetCalendarId: targetCalendarId,
+      syncEventName: syncEventName,
+    );
+
+    if (plan.errors.isNotEmpty) {
+      return SyncResult(
+        synced: UnmodifiableListView([]),
+        skipped: UnmodifiableListView([]),
+        deleted: UnmodifiableListView([]),
+        updated: UnmodifiableListView([]),
+        errors: UnmodifiableListView(plan.errors),
+      );
+    }
+
+    return _execute(
+      plan: plan,
+      sourceCalendarId: sourceCalendarId,
+      targetCalendarId: targetCalendarId,
+      syncEventName: syncEventName,
+    );
+  }
+
+  Future<SyncPlan> runDryRun({
+    required String sourceCalendarId,
+    required String targetCalendarId,
+    required String syncEventName,
+  }) async {
+    return _classify(
+      sourceCalendarId: sourceCalendarId,
+      targetCalendarId: targetCalendarId,
+      syncEventName: syncEventName,
+    );
+  }
+
+  Future<SyncPlan> _classify({
+    required String sourceCalendarId,
+    required String targetCalendarId,
+    required String syncEventName,
+  }) async {
+    final toCreate = <ToCreateEntry>[];
+    final toUpdate = <ToUpdateEntry>[];
+    final toSkip = <Event>[];
+    final toDelete = <Map<String, Object?>>[];
     final errors = <String>[];
 
     final sourceEvents = await _calendarService.listEvents(sourceCalendarId);
@@ -33,19 +116,10 @@ class SyncEngine {
     );
 
     for (final mapping in mappings) {
-      final mappingId = mapping['id'] as int;
       final sourceEventId = mapping['source_event_id'] as String;
-      final targetEventId = mapping['target_event_id'] as String;
-      final targetCalId = mapping['target_calendar_id'] as String;
 
       if (!sourceEventIds.contains(sourceEventId)) {
-        try {
-          await _calendarService.deleteEvent(targetCalId, targetEventId);
-          await _mappingDb.deleteMapping(mappingId);
-          deleted.add(sourceEventId);
-        } catch (e) {
-          errors.add('$sourceEventId: delete failed: $e');
-        }
+        toDelete.add(mapping);
       }
     }
 
@@ -71,7 +145,7 @@ class SyncEngine {
           );
 
           if (targetEvent == null || event.start == null || event.end == null) {
-            skipped.add(eventId);
+            toSkip.add(event);
             continue;
           }
 
@@ -82,34 +156,14 @@ class SyncEngine {
           final titleChanged = event.title != targetEvent.description;
 
           if (!timeChanged && !titleChanged) {
-            skipped.add(eventId);
+            toSkip.add(event);
             continue;
           }
 
-          final newTargetEventId = await _calendarService.createEvent(
-            targetCalendarId,
-            syncEventName,
-            event.start!,
-            event.end!,
-            description: event.title,
-          );
-
-          if (newTargetEventId == null) {
-            errors.add('$eventId: failed to create replacement');
-            continue;
-          }
-
-          await _calendarService.deleteEvent(targetCalendarId, targetEventId);
-
-          await _mappingDb.insertMapping(
-            sourceCalendarId: sourceCalendarId,
-            sourceEventId: eventId,
-            targetCalendarId: targetCalendarId,
-            targetEventId: newTargetEventId,
-            syncedAt: TZDateTime.now(local).toString(),
-          );
-
-          updated.add(eventId);
+          toUpdate.add(ToUpdateEntry(
+            sourceEvent: event,
+            mapping: Map<String, Object?>.from(mapping),
+          ));
           continue;
         }
 
@@ -118,6 +172,59 @@ class SyncEngine {
           continue;
         }
 
+        toCreate.add(ToCreateEntry(
+          sourceEvent: event,
+          projectedTitle: syncEventName,
+          projectedDescription: event.title ?? '',
+          projectedStart: event.start!,
+          projectedEnd: event.end!,
+        ));
+      } catch (e) {
+        errors.add('$eventId: $e');
+      }
+    }
+
+    return SyncPlan(
+      toCreate: toCreate,
+      toUpdate: toUpdate,
+      toSkip: toSkip,
+      toDelete: toDelete,
+      errors: errors,
+    );
+  }
+
+  Future<SyncResult> _execute({
+    required SyncPlan plan,
+    required String sourceCalendarId,
+    required String targetCalendarId,
+    required String syncEventName,
+  }) async {
+    final synced = <String>[];
+    final skipped = <String>[];
+    final deleted = <String>[];
+    final updated = <String>[];
+    final errors = <String>[];
+
+    for (final entry in plan.toDelete) {
+      final mappingId = entry['id'] as int;
+      final sourceEventId = entry['source_event_id'] as String;
+      final targetEventId = entry['target_event_id'] as String;
+      final targetCalId = entry['target_calendar_id'] as String;
+
+      try {
+        await _calendarService.deleteEvent(targetCalId, targetEventId);
+        await _mappingDb.deleteMapping(mappingId);
+        deleted.add(sourceEventId);
+      } catch (e) {
+        errors.add('$sourceEventId: delete failed: $e');
+      }
+    }
+
+    for (final entry in plan.toCreate) {
+      final event = entry.sourceEvent;
+      final eventId = event.eventId!;
+
+      try {
         final targetEventId = await _calendarService.createEvent(
           targetCalendarId,
           syncEventName,
@@ -144,6 +251,51 @@ class SyncEngine {
         errors.add('$eventId: $e');
       }
     }
+
+    for (final entry in plan.toUpdate) {
+      final event = entry.sourceEvent;
+      final eventId = event.eventId!;
+      final mapping = entry.mapping;
+      final targetEventId = mapping['target_event_id'] as String;
+
+      try {
+        final newTargetEventId = await _calendarService.createEvent(
+          targetCalendarId,
+          syncEventName,
+          event.start!,
+          event.end!,
+          description: event.title,
+        );
+
+        if (newTargetEventId == null) {
+          errors.add('$eventId: failed to create replacement');
+          continue;
+        }
+
+        await _calendarService.deleteEvent(targetCalendarId, targetEventId);
+
+        await _mappingDb.insertMapping(
+          sourceCalendarId: sourceCalendarId,
+          sourceEventId: eventId,
+          targetCalendarId: targetCalendarId,
+          targetEventId: newTargetEventId,
+          syncedAt: TZDateTime.now(local).toString(),
+        );
+
+        updated.add(eventId);
+      } catch (e) {
+        errors.add('$eventId: $e');
+      }
+    }
+
+    for (final event in plan.toSkip) {
+      final eventId = event.eventId;
+      if (eventId != null) {
+        skipped.add(eventId);
+      }
+    }
+
+    errors.addAll(plan.errors);
 
     return SyncResult(
       synced: UnmodifiableListView(synced),
