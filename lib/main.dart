@@ -7,6 +7,7 @@ import 'calendar/calendar_service.dart';
 import 'sync/mapping_database.dart';
 import 'sync/sync_engine.dart';
 import 'sync/sync_status_screen.dart';
+import 'sync/dry_run_screen.dart';
 import 'background/sync_task.dart';
 
 void main() async {
@@ -190,6 +191,18 @@ class _HomePageState extends State<HomePage> {
         title: const Text('CalSync'),
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.preview),
+            tooltip: 'Dry Run',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DryRunScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: () {
