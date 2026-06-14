@@ -1,0 +1,6 @@
+- Update pubspec.yaml
+- Update release.yml
+- Add changelog for v1.1.1+8
+- Merge pull request #14 from henriquecouto/henriquecouto-patch-1
+- Update pubspec.yaml
+- Update title.txt
