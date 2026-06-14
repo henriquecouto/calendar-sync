@@ -48,7 +48,7 @@ jobs:
         if: steps.tag_check.outputs.should_release == 'true'
         uses: subosito/flutter-action@v2
         with:
-          version: ${{ env.flutter-version }}
+          flutter-version: ${{ env.flutter-version }}
           cache: true
 
       - name: Install dependencies
