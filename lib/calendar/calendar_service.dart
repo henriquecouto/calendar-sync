@@ -46,9 +46,10 @@ class CalendarService {
   }
 
   Future<Event?> getEvent(String calendarId, String eventId) async {
-    final events = await listEvents(calendarId);
-    for (final e in events) {
-      if (e.eventId == eventId) return e;
+    final params = RetrieveEventsParams(eventIds: [eventId]);
+    final result = await _plugin.retrieveEvents(calendarId, params);
+    if (result.isSuccess && result.data != null && result.data!.isNotEmpty) {
+      return result.data!.first;
     }
     return null;
   }
