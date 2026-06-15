@@ -119,7 +119,43 @@ class SyncEngine {
       final sourceEventId = mapping['source_event_id'] as String;
 
       if (!sourceEventIds.contains(sourceEventId)) {
-        toDelete.add(mapping);
+        final targetEventId = mapping['target_event_id'] as String;
+        try {
+          final targetEvent = await _calendarService.getEvent(
+            targetCalendarId,
+            targetEventId,
+          );
+
+          if (targetEvent == null) {
+            final mappingId = mapping['id'] as int;
+            await _mappingDb.deleteMapping(mappingId);
+            continue;
+          }
+
+          if (targetEvent.end == null) {
+            final mappingId = mapping['id'] as int;
+            await _mappingDb.deleteMapping(mappingId);
+            continue;
+          }
+
+          final threshold = TZDateTime.now(local).subtract(const Duration(days: 7));
+          if (targetEvent.end!.isBefore(threshold)) {
+            continue;
+          }
+
+          final sourceEvent = await _calendarService.getEvent(
+            sourceCalendarId,
+            sourceEventId,
+          );
+
+          if (sourceEvent != null) {
+            sourceEvents.add(sourceEvent);
+          } else {
+            toDelete.add(mapping);
+          }
+        } catch (e) {
+          errors.add('$sourceEventId: $e');
+        }
       }
     }
 
@@ -145,6 +181,12 @@ class SyncEngine {
           );
 
           if (targetEvent == null || event.start == null || event.end == null) {
+            toSkip.add(event);
+            continue;
+          }
+
+          if (targetEvent.start == null || targetEvent.end == null) {
+            print('$eventId: target event has null start or end');
             toSkip.add(event);
             continue;
           }

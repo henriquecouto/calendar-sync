@@ -28,6 +28,21 @@ The system SHALL retrieve all events for a given calendar ID within a configurab
 - **WHEN** the system queries events for the next 30 days
 - **THEN** events outside that window are excluded from results
 
+### Requirement: Retrieve a single event by ID
+The system SHALL retrieve a single calendar event by its event ID directly, without being constrained by any time window. The retrieval SHALL use a direct ID-based lookup rather than fetching all events and scanning.
+
+#### Scenario: Past event retrieved by ID
+- **WHEN** the system requests an event by its ID and the event's start time is in the past
+- **THEN** the event is returned with all its fields (ID, title, start, end, description)
+
+#### Scenario: Future event retrieved by ID
+- **WHEN** the system requests an event by its ID and the event's start time is in the future
+- **THEN** the event is returned with all its fields
+
+#### Scenario: Non-existent event ID
+- **WHEN** the system requests an event by an ID that does not exist in the calendar
+- **THEN** the system returns null without error
+
 ### Requirement: Create an event in a calendar
 The system SHALL create a new event in a specified calendar with the given title, start time, end time, and optional description. The system SHALL return the new event ID.
 
