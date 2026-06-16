@@ -88,8 +88,8 @@ class _HomePageState extends State<HomePage> {
       _syncEnabled = syncEnabled;
       _calendars = calendars
           .map((c) => _CalendarItem(
-                c.id ?? '',
-                c.name?.isNotEmpty == true ? c.name! : (c.accountName ?? 'Unknown'),
+                c.id,
+                c.name.isNotEmpty ? c.name : (c.accountName ?? 'Unknown'),
               ))
           .toList();
       _loading = false;

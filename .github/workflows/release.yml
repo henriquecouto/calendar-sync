@@ -11,7 +11,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     env:
-      flutter-version: '3.44.1'
+      flutter-version: "3.44.2"
 
     steps:
       - name: Checkout

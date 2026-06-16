@@ -1,18 +1,46 @@
 import 'package:calendar_sync/calendar/calendar_service.dart';
 import 'package:calendar_sync/sync/mapping_database.dart';
 import 'package:calendar_sync/sync/sync_engine.dart';
-import 'package:device_calendar/device_calendar.dart';
+import 'package:device_calendar_plus/device_calendar_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:timezone/data/latest.dart';
 
 class MockCalendarService extends Mock implements CalendarService {}
 
 class MockMappingDatabase extends Mock implements MappingDatabase {}
 
+Event _makeEvent(String id, {required DateTime end, DateTime? start}) {
+  final s = start ?? end.subtract(const Duration(hours: 1));
+  return Event(
+    eventId: id,
+    instanceId: id,
+    calendarId: 'cal-1',
+    title: 'Test Event',
+    startDate: s,
+    endDate: end,
+    isAllDay: false,
+    availability: EventAvailability.busy,
+    status: EventStatus.none,
+    isRecurring: false,
+  );
+}
+
+Event _allDayEvent(String id, DateTime start, DateTime end) {
+  return Event(
+    eventId: id,
+    instanceId: id,
+    calendarId: 'cal-1',
+    title: 'All Day Test',
+    startDate: start,
+    endDate: end,
+    isAllDay: true,
+    availability: EventAvailability.busy,
+    status: EventStatus.none,
+    isRecurring: false,
+  );
+}
+
 void main() {
-  initializeTimeZones();
-  setLocalLocation(UTC);
   late MockCalendarService calendarService;
   late MockMappingDatabase mappingDb;
   late SyncEngine engine;
@@ -21,18 +49,8 @@ void main() {
   final targetCalId = 'tgt-cal';
   final syncName = 'Busy';
 
-  final futureEnd = TZDateTime.utc(2027, 1, 1);
-  final oldEnd = TZDateTime.utc(2020, 1, 1);
-
-  Event makeEvent(String id, {required TZDateTime end, TZDateTime? start}) {
-    return Event(
-      sourceCalId,
-      eventId: id,
-      title: 'Test Event',
-      start: start,
-      end: end,
-    );
-  }
+  final futureEnd = DateTime.utc(2027, 1, 1);
+  final oldEnd = DateTime.utc(2020, 1, 1);
 
   setUp(() {
     calendarService = MockCalendarService();
@@ -41,7 +59,7 @@ void main() {
   });
 
   group('Deletion pass 7-day threshold + source-by-ID', () {
-    test('old past event (target.end < now-7d) → skipped, no source fetch', () async {
+    test('old past event (target.end < now-7d) -> skipped, no source fetch', () async {
       when(() => calendarService.listEvents(sourceCalId))
           .thenAnswer((_) async => []);
 
@@ -56,8 +74,8 @@ void main() {
         ],
       );
 
-      when(() => calendarService.getEvent(targetCalId, 'tgt-1')).thenAnswer(
-        (_) async => makeEvent('tgt-1', end: oldEnd, start: oldEnd.subtract(const Duration(hours: 1))),
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
+        (_) async => _makeEvent('tgt-1', end: oldEnd, start: oldEnd.subtract(const Duration(hours: 1))),
       );
 
       final plan = await engine.runDryRun(
@@ -69,8 +87,8 @@ void main() {
       expect(plan.toDelete, isEmpty);
     });
 
-    test('recent event with source exists → re-classified, not deleted', () async {
-      final srcEvent = makeEvent('src-1',
+    test('recent event with source exists -> re-classified, not deleted', () async {
+      final srcEvent = _makeEvent('src-1',
           end: futureEnd, start: futureEnd.subtract(const Duration(hours: 1)));
 
       when(() => calendarService.listEvents(sourceCalId))
@@ -87,14 +105,14 @@ void main() {
         ],
       );
 
-      when(() => calendarService.getEvent(sourceCalId, 'src-1'))
+      when(() => calendarService.getEvent('src-1'))
           .thenAnswer((_) async => srcEvent);
 
       when(() => mappingDb.isEventSynced(sourceCalId, 'src-1'))
           .thenAnswer((_) async => true);
 
-      when(() => calendarService.getEvent(targetCalId, 'tgt-1')).thenAnswer(
-        (_) async => makeEvent('tgt-1', end: futureEnd, start: futureEnd.subtract(const Duration(hours: 1))),
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
+        (_) async => _makeEvent('tgt-1', end: futureEnd, start: futureEnd.subtract(const Duration(hours: 1))),
       );
 
       final plan = await engine.runDryRun(
@@ -106,7 +124,7 @@ void main() {
       expect(plan.toDelete, isEmpty);
     });
 
-    test('recent event with source gone → deleted', () async {
+    test('recent event with source gone -> deleted', () async {
       when(() => calendarService.listEvents(sourceCalId))
           .thenAnswer((_) async => []);
 
@@ -121,11 +139,11 @@ void main() {
         ],
       );
 
-      when(() => calendarService.getEvent(targetCalId, 'tgt-1')).thenAnswer(
-        (_) async => makeEvent('tgt-1', end: futureEnd, start: futureEnd.subtract(const Duration(hours: 1))),
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
+        (_) async => _makeEvent('tgt-1', end: futureEnd, start: futureEnd.subtract(const Duration(hours: 1))),
       );
 
-      when(() => calendarService.getEvent(sourceCalId, 'src-1'))
+      when(() => calendarService.getEvent('src-1'))
           .thenAnswer((_) async => null);
 
       final plan = await engine.runDryRun(
@@ -140,8 +158,8 @@ void main() {
   });
 
   group('Null safety for target event times', () {
-    test('target event with null start/end is skipped without crashing', () async {
-      final srcEvent = makeEvent('src-1',
+    test('target event not found is skipped without crashing', () async {
+      final srcEvent = _makeEvent('src-1',
           end: futureEnd, start: futureEnd.subtract(const Duration(hours: 1)));
 
       when(() => calendarService.listEvents(sourceCalId))
@@ -161,9 +179,8 @@ void main() {
       when(() => mappingDb.isEventSynced(sourceCalId, 'src-1'))
           .thenAnswer((_) async => true);
 
-      when(() => calendarService.getEvent(targetCalId, 'tgt-1')).thenAnswer(
-        (_) async => makeEvent('tgt-1', end: futureEnd, start: null),
-      );
+      when(() => calendarService.getEvent('tgt-1'))
+          .thenAnswer((_) async => null);
 
       final plan = await engine.runDryRun(
         sourceCalendarId: sourceCalId,
@@ -176,23 +193,13 @@ void main() {
   });
 
   group('All-day event sync', () {
-    final day1 = TZDateTime.utc(2026, 6, 23);
-    final day3 = TZDateTime.utc(2026, 6, 25);
-    final localDay1 = day1.add(-DateTime.now().timeZoneOffset);
+    final day1 = DateTime.utc(2026, 6, 23);
+    final day3 = DateTime.utc(2026, 6, 25);
 
-    Event allDaySource(String id, TZDateTime start, TZDateTime end) {
-      return Event(
-        sourceCalId,
-        eventId: id,
-        title: 'All Day Test',
-        start: start,
-        end: end,
-        allDay: true,
-      );
-    }
-
-    test('single-day all-day source creates timed target with correct dates', () async {
-      final srcEvent = allDaySource('src-1', day1, day1);
+    test('single-day all-day source creates all-day target with same dates', () async {
+      final srcStart = day1;
+      final srcEnd = day1.add(const Duration(days: 1));
+      final srcEvent = _allDayEvent('src-1', srcStart, srcEnd);
 
       when(() => calendarService.listEvents(sourceCalId))
           .thenAnswer((_) async => [srcEvent]);
@@ -211,14 +218,14 @@ void main() {
 
       expect(plan.toCreate, hasLength(1));
       final entry = plan.toCreate.first;
-      expect(entry.projectedAllDay, false);
-      expect(entry.projectedStart, localDay1);
-      expect(entry.projectedEnd, localDay1.add(const Duration(days: 1)));
+      expect(entry.projectedAllDay, true);
+      expect(entry.projectedStart, srcStart);
+      expect(entry.projectedEnd, srcEnd);
     });
 
-    test('multi-day all-day source creates timed target spanning full days', () async {
-      final srcEvent = allDaySource('src-1', day1, day3);
-      final localDay3 = day3.add(-DateTime.now().timeZoneOffset);
+    test('multi-day all-day source creates all-day target with same dates', () async {
+      final srcEnd = day3.add(const Duration(days: 1));
+      final srcEvent = _allDayEvent('src-1', day1, srcEnd);
 
       when(() => calendarService.listEvents(sourceCalId))
           .thenAnswer((_) async => [srcEvent]);
@@ -237,15 +244,15 @@ void main() {
 
       expect(plan.toCreate, hasLength(1));
       final entry = plan.toCreate.first;
-      expect(entry.projectedAllDay, false);
-      expect(entry.projectedStart, localDay1);
-      expect(entry.projectedEnd, localDay3.add(const Duration(days: 1)));
+      expect(entry.projectedAllDay, true);
+      expect(entry.projectedStart, day1);
+      expect(entry.projectedEnd, srcEnd);
     });
 
-    test('all-day change detection: skip when date and duration match', () async {
-      final srcEvent = allDaySource('src-1', day1, day1);
-      final tgtStart = day1;
-      final tgtEnd = day1.add(const Duration(days: 1));
+    test('all-day change detection: skip when dates match', () async {
+      final srcStart = day1;
+      final srcEnd = day1.add(const Duration(days: 1));
+      final srcEvent = _allDayEvent('src-1', srcStart, srcEnd);
 
       when(() => calendarService.listEvents(sourceCalId))
           .thenAnswer((_) async => [srcEvent]);
@@ -264,15 +271,19 @@ void main() {
       when(() => mappingDb.isEventSynced(sourceCalId, 'src-1'))
           .thenAnswer((_) async => true);
 
-      when(() => calendarService.getEvent(targetCalId, 'tgt-1')).thenAnswer(
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
         (_) async => Event(
-          targetCalId,
           eventId: 'tgt-1',
+          instanceId: 'tgt-1',
+          calendarId: targetCalId,
           title: 'All Day Test',
           description: 'All Day Test',
-          start: tgtStart,
-          end: tgtEnd,
-          allDay: false,
+          startDate: srcStart,
+          endDate: srcEnd,
+          isAllDay: true,
+          availability: EventAvailability.busy,
+          status: EventStatus.none,
+          isRecurring: false,
         ),
       );
 
@@ -287,7 +298,9 @@ void main() {
     });
 
     test('all-day change detection: update when date changes', () async {
-      final srcEvent = allDaySource('src-1', day3, day3);
+      final srcStart = day3;
+      final srcEnd = day3.add(const Duration(days: 1));
+      final srcEvent = _allDayEvent('src-1', srcStart, srcEnd);
       final tgtStart = day1;
       final tgtEnd = day1.add(const Duration(days: 1));
 
@@ -308,15 +321,19 @@ void main() {
       when(() => mappingDb.isEventSynced(sourceCalId, 'src-1'))
           .thenAnswer((_) async => true);
 
-      when(() => calendarService.getEvent(targetCalId, 'tgt-1')).thenAnswer(
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
         (_) async => Event(
-          targetCalId,
           eventId: 'tgt-1',
+          instanceId: 'tgt-1',
+          calendarId: targetCalId,
           title: 'All Day Test',
           description: 'All Day Test',
-          start: tgtStart,
-          end: tgtEnd,
-          allDay: false,
+          startDate: tgtStart,
+          endDate: tgtEnd,
+          isAllDay: true,
+          availability: EventAvailability.busy,
+          status: EventStatus.none,
+          isRecurring: false,
         ),
       );
 
@@ -331,15 +348,19 @@ void main() {
     });
 
     test('timed source event is copied as-is (regression)', () async {
-      final start = TZDateTime.utc(2026, 6, 23, 14, 0);
-      final end = TZDateTime.utc(2026, 6, 23, 15, 0);
+      final start = DateTime.utc(2026, 6, 23, 14, 0);
+      final end = DateTime.utc(2026, 6, 23, 15, 0);
       final srcEvent = Event(
-        sourceCalId,
         eventId: 'src-1',
+        instanceId: 'src-1',
+        calendarId: sourceCalId,
         title: 'Timed Event',
-        start: start,
-        end: end,
-        allDay: false,
+        startDate: start,
+        endDate: end,
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
       );
 
       when(() => calendarService.listEvents(sourceCalId))
@@ -365,14 +386,22 @@ void main() {
     });
   });
 
-  group('Safety net — _execute paths', () {
-    final start = TZDateTime.utc(2026, 6, 23, 14, 0);
-    final end = TZDateTime.utc(2026, 6, 23, 15, 0);
+  group('Safety net -- _execute paths', () {
+    final start = DateTime.utc(2026, 6, 23, 14, 0);
+    final end = DateTime.utc(2026, 6, 23, 15, 0);
 
     test('create path: createEvent is called with correct values', () async {
       final srcEvent = Event(
-        sourceCalId, eventId: 'src-1', title: 'Test',
-        start: start, end: end, allDay: false,
+        eventId: 'src-1',
+        instanceId: 'src-1',
+        calendarId: sourceCalId,
+        title: 'Test',
+        startDate: start,
+        endDate: end,
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
       );
 
       when(() => calendarService.listEvents(sourceCalId))
@@ -383,7 +412,7 @@ void main() {
           .thenAnswer((_) async => false);
       when(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Test', allDay: false,
+        description: 'Test', isAllDay: false,
       )).thenAnswer((_) async => 'new-id-1');
       when(() => mappingDb.insertMapping(
         sourceCalendarId: sourceCalId,
@@ -401,17 +430,24 @@ void main() {
 
       verify(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Test', allDay: false,
+        description: 'Test', isAllDay: false,
       )).called(1);
       expect(result.synced, ['src-1']);
     });
 
     test('update path: old event deleted then new event created', () async {
       final srcEvent = Event(
-        sourceCalId, eventId: 'src-1', title: 'Test',
-        start: start, end: end, allDay: false,
+        eventId: 'src-1',
+        instanceId: 'src-1',
+        calendarId: sourceCalId,
+        title: 'Test',
+        startDate: start,
+        endDate: end,
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
       );
-      // Target has different end time → triggers update
       final tgtEnd = end.subtract(const Duration(hours: 1));
 
       when(() => calendarService.listEvents(sourceCalId))
@@ -424,16 +460,26 @@ void main() {
       );
       when(() => mappingDb.isEventSynced(sourceCalId, 'src-1'))
           .thenAnswer((_) async => true);
-      when(() => calendarService.getEvent(targetCalId, 'tgt-1')).thenAnswer(
-        (_) async => Event(targetCalId, eventId: 'tgt-1', title: 'Test',
-            start: start, end: tgtEnd,
-            description: 'Test'),
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
+        (_) async => Event(
+          eventId: 'tgt-1',
+          instanceId: 'tgt-1',
+          calendarId: targetCalId,
+          title: 'Test',
+          startDate: start,
+          endDate: tgtEnd,
+          description: 'Test',
+          isAllDay: false,
+          availability: EventAvailability.busy,
+          status: EventStatus.none,
+          isRecurring: false,
+        ),
       );
       when(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Test', allDay: false,
+        description: 'Test', isAllDay: false,
       )).thenAnswer((_) async => 'new-id-2');
-      when(() => calendarService.deleteEvent(targetCalId, 'tgt-1'))
+      when(() => calendarService.deleteEvent('tgt-1'))
           .thenAnswer((_) async => true);
       when(() => mappingDb.insertMapping(
         sourceCalendarId: sourceCalId, sourceEventId: 'src-1',
@@ -447,10 +493,10 @@ void main() {
         syncEventName: syncName,
       );
 
-      verify(() => calendarService.deleteEvent(targetCalId, 'tgt-1')).called(1);
+      verify(() => calendarService.deleteEvent('tgt-1')).called(1);
       verify(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Test', allDay: false,
+        description: 'Test', isAllDay: false,
       )).called(1);
       expect(result.updated, ['src-1']);
     });
@@ -464,14 +510,13 @@ void main() {
           'target_event_id': 'tgt-1', 'target_calendar_id': targetCalId,
         }],
       );
-      // Target exists, end is recent, source is gone
-      when(() => calendarService.getEvent(targetCalId, 'tgt-1')).thenAnswer(
-        (_) async => makeEvent('tgt-1', end: futureEnd,
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
+        (_) async => _makeEvent('tgt-1', end: futureEnd,
             start: futureEnd.subtract(const Duration(hours: 1))),
       );
-      when(() => calendarService.getEvent(sourceCalId, 'src-1'))
+      when(() => calendarService.getEvent('src-1'))
           .thenAnswer((_) async => null);
-      when(() => calendarService.deleteEvent(targetCalId, 'tgt-1'))
+      when(() => calendarService.deleteEvent('tgt-1'))
           .thenAnswer((_) async => true);
       when(() => mappingDb.deleteMapping(1))
           .thenAnswer((_) async {});
@@ -482,22 +527,21 @@ void main() {
         syncEventName: syncName,
       );
 
-      verify(() => calendarService.deleteEvent(targetCalId, 'tgt-1')).called(1);
+      verify(() => calendarService.deleteEvent('tgt-1')).called(1);
       verify(() => mappingDb.deleteMapping(1)).called(1);
       expect(result.deleted, ['src-1']);
     });
 
-    test('errors path: plan.errors non-empty → returns empty SyncResult', () async {
+    test('errors path: plan.errors non-empty -> returns empty SyncResult', () async {
       when(() => calendarService.listEvents(sourceCalId))
           .thenAnswer((_) async => []);
-      // getEvent throws inside the orphan loop's try-catch → adds to errors
       when(() => mappingDb.listMappingsForCalendar(sourceCalId)).thenAnswer(
         (_) async => [{
           'id': 1, 'source_event_id': 'src-1',
           'target_event_id': 'tgt-1', 'target_calendar_id': targetCalId,
         }],
       );
-      when(() => calendarService.getEvent(targetCalId, 'tgt-1'))
+      when(() => calendarService.getEvent('tgt-1'))
           .thenThrow(Exception('boom'));
 
       final result = await engine.runSync(
@@ -514,10 +558,10 @@ void main() {
     });
   });
 
-  group('Safety net — orphan mappings', () {
-    final day1 = TZDateTime.utc(2026, 6, 23);
+  group('Safety net -- orphan mappings', () {
+    final day1 = DateTime.utc(2026, 6, 23);
 
-    test('target event is null → mapping deleted, no crash', () async {
+    test('target event is null -> mapping deleted, no crash', () async {
       when(() => calendarService.listEvents(sourceCalId))
           .thenAnswer((_) async => []);
       when(() => mappingDb.listMappingsForCalendar(sourceCalId)).thenAnswer(
@@ -526,7 +570,7 @@ void main() {
           'target_event_id': 'tgt-1', 'target_calendar_id': targetCalId,
         }],
       );
-      when(() => calendarService.getEvent(targetCalId, 'tgt-1'))
+      when(() => calendarService.getEvent('tgt-1'))
           .thenAnswer((_) async => null);
       when(() => mappingDb.deleteMapping(1))
           .thenAnswer((_) async {});
@@ -541,7 +585,7 @@ void main() {
       expect(plan.errors, isEmpty);
     });
 
-    test('all-day target with end=null → mapping preserved, not deleted', () async {
+    test('all-day target with far-future end -> mapping preserved, not deleted', () async {
       when(() => calendarService.listEvents(sourceCalId))
           .thenAnswer((_) async => []);
       when(() => mappingDb.listMappingsForCalendar(sourceCalId)).thenAnswer(
@@ -550,9 +594,23 @@ void main() {
           'target_event_id': 'tgt-1', 'target_calendar_id': targetCalId,
         }],
       );
-      when(() => calendarService.getEvent(targetCalId, 'tgt-1')).thenAnswer(
-        (_) async => Event(targetCalId, eventId: 'tgt-1',
-            start: day1, end: null, allDay: true),
+      when(() => calendarService.getEvent('src-1'))
+          .thenAnswer((_) async => _makeEvent('src-1', end: futureEnd));
+      when(() => mappingDb.isEventSynced(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => true);
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
+        (_) async => Event(
+          eventId: 'tgt-1',
+          instanceId: 'tgt-1',
+          calendarId: targetCalId,
+          title: 'Test',
+          startDate: day1,
+          endDate: futureEnd,
+          isAllDay: true,
+          availability: EventAvailability.busy,
+          status: EventStatus.none,
+          isRecurring: false,
+        ),
       );
 
       final plan = await engine.runDryRun(
@@ -561,7 +619,7 @@ void main() {
         syncEventName: syncName,
       );
 
-      verifyNever(() => mappingDb.deleteMapping(any()));
+      expect(plan.toDelete, isEmpty);
       expect(plan.errors, isEmpty);
     });
   });
