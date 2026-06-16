@@ -174,4 +174,194 @@ void main() {
       expect(plan.toSkip.any((e) => e.eventId == 'src-1'), isTrue);
     });
   });
+
+  group('All-day event sync', () {
+    final day1 = TZDateTime.utc(2026, 6, 23);
+    final day3 = TZDateTime.utc(2026, 6, 25);
+    final localDay1 = day1.add(-DateTime.now().timeZoneOffset);
+
+    Event allDaySource(String id, TZDateTime start, TZDateTime end) {
+      return Event(
+        sourceCalId,
+        eventId: id,
+        title: 'All Day Test',
+        start: start,
+        end: end,
+        allDay: true,
+      );
+    }
+
+    test('single-day all-day source creates timed target with correct dates', () async {
+      final srcEvent = allDaySource('src-1', day1, day1);
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+
+      when(() => mappingDb.listMappingsForCalendar(sourceCalId))
+          .thenAnswer((_) async => []);
+
+      when(() => mappingDb.isEventSynced(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+
+      final plan = await engine.runDryRun(
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toCreate, hasLength(1));
+      final entry = plan.toCreate.first;
+      expect(entry.projectedAllDay, false);
+      expect(entry.projectedStart, localDay1);
+      expect(entry.projectedEnd, localDay1.add(const Duration(days: 1)));
+    });
+
+    test('multi-day all-day source creates timed target spanning full days', () async {
+      final srcEvent = allDaySource('src-1', day1, day3);
+      final localDay3 = day3.add(-DateTime.now().timeZoneOffset);
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+
+      when(() => mappingDb.listMappingsForCalendar(sourceCalId))
+          .thenAnswer((_) async => []);
+
+      when(() => mappingDb.isEventSynced(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+
+      final plan = await engine.runDryRun(
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toCreate, hasLength(1));
+      final entry = plan.toCreate.first;
+      expect(entry.projectedAllDay, false);
+      expect(entry.projectedStart, localDay1);
+      expect(entry.projectedEnd, localDay3.add(const Duration(days: 1)));
+    });
+
+    test('all-day change detection: skip when date and duration match', () async {
+      final srcEvent = allDaySource('src-1', day1, day1);
+      final tgtStart = day1;
+      final tgtEnd = day1.add(const Duration(days: 1));
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+
+      when(() => mappingDb.listMappingsForCalendar(sourceCalId)).thenAnswer(
+        (_) async => [
+          {
+            'id': 1,
+            'source_event_id': 'src-1',
+            'target_event_id': 'tgt-1',
+            'target_calendar_id': targetCalId,
+          },
+        ],
+      );
+
+      when(() => mappingDb.isEventSynced(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => true);
+
+      when(() => calendarService.getEvent(targetCalId, 'tgt-1')).thenAnswer(
+        (_) async => Event(
+          targetCalId,
+          eventId: 'tgt-1',
+          title: 'All Day Test',
+          description: 'All Day Test',
+          start: tgtStart,
+          end: tgtEnd,
+          allDay: false,
+        ),
+      );
+
+      final plan = await engine.runDryRun(
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toUpdate, isEmpty);
+      expect(plan.toSkip.any((e) => e.eventId == 'src-1'), isTrue);
+    });
+
+    test('all-day change detection: update when date changes', () async {
+      final srcEvent = allDaySource('src-1', day3, day3);
+      final tgtStart = day1;
+      final tgtEnd = day1.add(const Duration(days: 1));
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+
+      when(() => mappingDb.listMappingsForCalendar(sourceCalId)).thenAnswer(
+        (_) async => [
+          {
+            'id': 1,
+            'source_event_id': 'src-1',
+            'target_event_id': 'tgt-1',
+            'target_calendar_id': targetCalId,
+          },
+        ],
+      );
+
+      when(() => mappingDb.isEventSynced(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => true);
+
+      when(() => calendarService.getEvent(targetCalId, 'tgt-1')).thenAnswer(
+        (_) async => Event(
+          targetCalId,
+          eventId: 'tgt-1',
+          title: 'All Day Test',
+          description: 'All Day Test',
+          start: tgtStart,
+          end: tgtEnd,
+          allDay: false,
+        ),
+      );
+
+      final plan = await engine.runDryRun(
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toUpdate, hasLength(1));
+      expect(plan.toUpdate.first.sourceEvent.eventId, 'src-1');
+    });
+
+    test('timed source event is copied as-is (regression)', () async {
+      final start = TZDateTime.utc(2026, 6, 23, 14, 0);
+      final end = TZDateTime.utc(2026, 6, 23, 15, 0);
+      final srcEvent = Event(
+        sourceCalId,
+        eventId: 'src-1',
+        title: 'Timed Event',
+        start: start,
+        end: end,
+        allDay: false,
+      );
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+
+      when(() => mappingDb.listMappingsForCalendar(sourceCalId))
+          .thenAnswer((_) async => []);
+
+      when(() => mappingDb.isEventSynced(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+
+      final plan = await engine.runDryRun(
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toCreate, hasLength(1));
+      final entry = plan.toCreate.first;
+      expect(entry.projectedAllDay, false);
+      expect(entry.projectedStart, start);
+      expect(entry.projectedEnd, end);
+    });
+  });
 }

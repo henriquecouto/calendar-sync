@@ -30,6 +30,7 @@ class CalendarService {
     TZDateTime start,
     TZDateTime end, {
     String? description,
+    bool? allDay,
   }) async {
     final event = Event(
       calendarId,
@@ -37,6 +38,7 @@ class CalendarService {
       start: start,
       end: end,
       description: description,
+      allDay: allDay,
     );
     final result = await _plugin.createOrUpdateEvent(event);
     if (result != null && result.isSuccess) {
