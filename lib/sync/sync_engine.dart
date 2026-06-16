@@ -59,6 +59,12 @@ class SyncEngine {
         .subtract(DateTime.now().timeZoneOffset);
   }
 
+  static TZDateTime _projectEnd(Event event) {
+    return _localMidnight(
+            event.end!.year, event.end!.month, event.end!.day)
+        .add(const Duration(days: 1));
+  }
+
   Future<SyncResult> runSync({
     required String sourceCalendarId,
     required String targetCalendarId,
@@ -100,28 +106,15 @@ class SyncEngine {
     );
   }
 
-  Future<SyncPlan> _classify({
+  Future<void> _processOrphanMappings({
+    required Set<String?> sourceEventIds,
     required String sourceCalendarId,
     required String targetCalendarId,
-    required String syncEventName,
+    required List<Map<String, Object?>> mappings,
+    required List<Event> sourceEvents,
+    required List<Map<String, Object?>> toDelete,
+    required List<String> errors,
   }) async {
-    final toCreate = <ToCreateEntry>[];
-    final toUpdate = <ToUpdateEntry>[];
-    final toSkip = <Event>[];
-    final toDelete = <Map<String, Object?>>[];
-    final errors = <String>[];
-
-    final sourceEvents = await _calendarService.listEvents(sourceCalendarId);
-
-    final sourceEventIds = sourceEvents
-        .map((e) => e.eventId)
-        .where((id) => id != null)
-        .toSet();
-
-    final mappings = await _mappingDb.listMappingsForCalendar(
-      sourceCalendarId,
-    );
-
     for (final mapping in mappings) {
       final sourceEventId = mapping['source_event_id'] as String;
 
@@ -167,6 +160,39 @@ class SyncEngine {
         }
       }
     }
+  }
+
+  Future<SyncPlan> _classify({
+    required String sourceCalendarId,
+    required String targetCalendarId,
+    required String syncEventName,
+  }) async {
+    final toCreate = <ToCreateEntry>[];
+    final toUpdate = <ToUpdateEntry>[];
+    final toSkip = <Event>[];
+    final toDelete = <Map<String, Object?>>[];
+    final errors = <String>[];
+
+    final sourceEvents = await _calendarService.listEvents(sourceCalendarId);
+
+    final sourceEventIds = sourceEvents
+        .map((e) => e.eventId)
+        .where((id) => id != null)
+        .toSet();
+
+    final mappings = await _mappingDb.listMappingsForCalendar(
+      sourceCalendarId,
+    );
+
+    await _processOrphanMappings(
+      sourceEventIds: sourceEventIds,
+      sourceCalendarId: sourceCalendarId,
+      targetCalendarId: targetCalendarId,
+      mappings: mappings,
+      sourceEvents: sourceEvents,
+      toDelete: toDelete,
+      errors: errors,
+    );
 
     for (final event in sourceEvents) {
       final eventId = event.eventId;
@@ -246,9 +272,7 @@ class SyncEngine {
                 event.start!.year, event.start!.month, event.start!.day)
             : event.start!;
         final projectedEnd = event.allDay == true
-            ? _localMidnight(
-                event.end!.year, event.end!.month, event.end!.day)
-                .add(const Duration(days: 1))
+            ? _projectEnd(event)
             : event.end!;
 
         toCreate.add(ToCreateEntry(
@@ -344,9 +368,7 @@ class SyncEngine {
                 event.start!.year, event.start!.month, event.start!.day)
             : event.start!;
         final updateEnd = event.allDay == true
-            ? _localMidnight(
-                event.end!.year, event.end!.month, event.end!.day)
-                .add(const Duration(days: 1))
+            ? _projectEnd(event)
             : event.end!;
 
         final newTargetEventId = await _calendarService.createEvent(
