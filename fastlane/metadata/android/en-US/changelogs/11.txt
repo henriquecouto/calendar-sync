@@ -1,0 +1,1 @@
+- feat: support all-day event sync as timed events in local timezone (#17)
