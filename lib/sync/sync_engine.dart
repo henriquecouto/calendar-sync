@@ -26,6 +26,7 @@ class ToCreateEntry {
   final String projectedDescription;
   final TZDateTime projectedStart;
   final TZDateTime projectedEnd;
+  final bool projectedAllDay;
 
   const ToCreateEntry({
     required this.sourceEvent,
@@ -33,6 +34,7 @@ class ToCreateEntry {
     required this.projectedDescription,
     required this.projectedStart,
     required this.projectedEnd,
+    this.projectedAllDay = false,
   });
 }
 
@@ -51,6 +53,17 @@ class SyncEngine {
   final MappingDatabase _mappingDb;
 
   SyncEngine(this._calendarService, this._mappingDb);
+
+  static TZDateTime _localMidnight(int year, int month, int day) {
+    return TZDateTime.utc(year, month, day)
+        .subtract(DateTime.now().timeZoneOffset);
+  }
+
+  static TZDateTime _projectEnd(Event event) {
+    return _localMidnight(
+            event.end!.year, event.end!.month, event.end!.day)
+        .add(const Duration(days: 1));
+  }
 
   Future<SyncResult> runSync({
     required String sourceCalendarId,
@@ -93,28 +106,15 @@ class SyncEngine {
     );
   }
 
-  Future<SyncPlan> _classify({
+  Future<void> _processOrphanMappings({
+    required Set<String?> sourceEventIds,
     required String sourceCalendarId,
     required String targetCalendarId,
-    required String syncEventName,
+    required List<Map<String, Object?>> mappings,
+    required List<Event> sourceEvents,
+    required List<Map<String, Object?>> toDelete,
+    required List<String> errors,
   }) async {
-    final toCreate = <ToCreateEntry>[];
-    final toUpdate = <ToUpdateEntry>[];
-    final toSkip = <Event>[];
-    final toDelete = <Map<String, Object?>>[];
-    final errors = <String>[];
-
-    final sourceEvents = await _calendarService.listEvents(sourceCalendarId);
-
-    final sourceEventIds = sourceEvents
-        .map((e) => e.eventId)
-        .where((id) => id != null)
-        .toSet();
-
-    final mappings = await _mappingDb.listMappingsForCalendar(
-      sourceCalendarId,
-    );
-
     for (final mapping in mappings) {
       final sourceEventId = mapping['source_event_id'] as String;
 
@@ -133,8 +133,10 @@ class SyncEngine {
           }
 
           if (targetEvent.end == null) {
-            final mappingId = mapping['id'] as int;
-            await _mappingDb.deleteMapping(mappingId);
+            if (targetEvent.allDay != true) {
+              final mappingId = mapping['id'] as int;
+              await _mappingDb.deleteMapping(mappingId);
+            }
             continue;
           }
 
@@ -158,6 +160,39 @@ class SyncEngine {
         }
       }
     }
+  }
+
+  Future<SyncPlan> _classify({
+    required String sourceCalendarId,
+    required String targetCalendarId,
+    required String syncEventName,
+  }) async {
+    final toCreate = <ToCreateEntry>[];
+    final toUpdate = <ToUpdateEntry>[];
+    final toSkip = <Event>[];
+    final toDelete = <Map<String, Object?>>[];
+    final errors = <String>[];
+
+    final sourceEvents = await _calendarService.listEvents(sourceCalendarId);
+
+    final sourceEventIds = sourceEvents
+        .map((e) => e.eventId)
+        .where((id) => id != null)
+        .toSet();
+
+    final mappings = await _mappingDb.listMappingsForCalendar(
+      sourceCalendarId,
+    );
+
+    await _processOrphanMappings(
+      sourceEventIds: sourceEventIds,
+      sourceCalendarId: sourceCalendarId,
+      targetCalendarId: targetCalendarId,
+      mappings: mappings,
+      sourceEvents: sourceEvents,
+      toDelete: toDelete,
+      errors: errors,
+    );
 
     for (final event in sourceEvents) {
       final eventId = event.eventId;
@@ -185,16 +220,34 @@ class SyncEngine {
             continue;
           }
 
-          if (targetEvent.start == null || targetEvent.end == null) {
-            print('$eventId: target event has null start or end');
+          if (targetEvent.allDay != true &&
+              (targetEvent.start == null || targetEvent.end == null)) {
             toSkip.add(event);
             continue;
           }
 
-          final timeChanged = event.start!.millisecondsSinceEpoch !=
-                  targetEvent.start!.millisecondsSinceEpoch ||
-              event.end!.millisecondsSinceEpoch !=
-                  targetEvent.end!.millisecondsSinceEpoch;
+          final bool timeChanged;
+          if (event.allDay == true) {
+            if (targetEvent.start == null || targetEvent.end == null) {
+              timeChanged = true;
+            } else {
+              final srcDays =
+                  event.end!.difference(event.start!).inDays;
+              final tgtDays =
+                  targetEvent.end!.difference(targetEvent.start!).inDays;
+              timeChanged = event.start!.year != targetEvent.start!.year ||
+                  event.start!.month != targetEvent.start!.month ||
+                  event.start!.day != targetEvent.start!.day ||
+                  srcDays + 1 != tgtDays;
+            }
+          } else {
+            timeChanged = targetEvent.start == null ||
+                targetEvent.end == null ||
+                event.start!.millisecondsSinceEpoch !=
+                    targetEvent.start!.millisecondsSinceEpoch ||
+                event.end!.millisecondsSinceEpoch !=
+                    targetEvent.end!.millisecondsSinceEpoch;
+          }
           final titleChanged = event.title != targetEvent.description;
 
           if (!timeChanged && !titleChanged) {
@@ -214,12 +267,20 @@ class SyncEngine {
           continue;
         }
 
+        final projectedStart = event.allDay == true
+            ? _localMidnight(
+                event.start!.year, event.start!.month, event.start!.day)
+            : event.start!;
+        final projectedEnd = event.allDay == true
+            ? _projectEnd(event)
+            : event.end!;
+
         toCreate.add(ToCreateEntry(
           sourceEvent: event,
           projectedTitle: syncEventName,
           projectedDescription: event.title ?? '',
-          projectedStart: event.start!,
-          projectedEnd: event.end!,
+          projectedStart: projectedStart,
+          projectedEnd: projectedEnd,
         ));
       } catch (e) {
         errors.add('$eventId: $e');
@@ -270,9 +331,10 @@ class SyncEngine {
         final targetEventId = await _calendarService.createEvent(
           targetCalendarId,
           syncEventName,
-          event.start!,
-          event.end!,
+          entry.projectedStart,
+          entry.projectedEnd,
           description: event.title,
+          allDay: entry.projectedAllDay,
         );
 
         if (targetEventId == null) {
@@ -301,12 +363,21 @@ class SyncEngine {
       final targetEventId = mapping['target_event_id'] as String;
 
       try {
+        final updateStart = event.allDay == true
+            ? _localMidnight(
+                event.start!.year, event.start!.month, event.start!.day)
+            : event.start!;
+        final updateEnd = event.allDay == true
+            ? _projectEnd(event)
+            : event.end!;
+
         final newTargetEventId = await _calendarService.createEvent(
           targetCalendarId,
           syncEventName,
-          event.start!,
-          event.end!,
+          updateStart,
+          updateEnd,
           description: event.title,
+          allDay: false,
         );
 
         if (newTargetEventId == null) {
