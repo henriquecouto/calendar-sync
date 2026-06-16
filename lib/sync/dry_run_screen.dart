@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:device_calendar/device_calendar.dart';
+import 'package:device_calendar_plus/device_calendar_plus.dart';
 
 import '../calendar/calendar_service.dart';
 import '../settings/settings_service.dart';
@@ -231,11 +231,11 @@ class _CreateTile extends StatelessWidget {
 
   const _CreateTile({required this.entry});
 
-  String _formatTime(TZDateTime tzDt) {
-    final h = tzDt.hour.toString().padLeft(2, '0');
-    final m = tzDt.minute.toString().padLeft(2, '0');
-    final d = tzDt.day.toString().padLeft(2, '0');
-    final mo = tzDt.month.toString().padLeft(2, '0');
+  String _formatTime(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    final mo = dt.month.toString().padLeft(2, '0');
     return '$d/$mo $h:$m';
   }
 
@@ -250,7 +250,7 @@ class _CreateTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              source.title ?? '(no title)',
+              source.title,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
@@ -280,12 +280,11 @@ class _UpdateTile extends StatelessWidget {
 
   const _UpdateTile({required this.entry});
 
-  String _formatTime(TZDateTime? tzDt) {
-    if (tzDt == null) return '?';
-    final h = tzDt.hour.toString().padLeft(2, '0');
-    final m = tzDt.minute.toString().padLeft(2, '0');
-    final d = tzDt.day.toString().padLeft(2, '0');
-    final mo = tzDt.month.toString().padLeft(2, '0');
+  String _formatTime(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    final mo = dt.month.toString().padLeft(2, '0');
     return '$d/$mo $h:$m';
   }
 
@@ -300,12 +299,12 @@ class _UpdateTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              source.title ?? '(no title)',
+              source.title,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             Text(
-              '${_formatTime(source.start)} → ${_formatTime(source.end)}',
+              '${_formatTime(source.startDate)} → ${_formatTime(source.endDate)}',
               style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const Divider(),
@@ -325,12 +324,11 @@ class _SkipTile extends StatelessWidget {
 
   const _SkipTile({required this.event});
 
-  String _formatTime(TZDateTime? tzDt) {
-    if (tzDt == null) return '?';
-    final h = tzDt.hour.toString().padLeft(2, '0');
-    final m = tzDt.minute.toString().padLeft(2, '0');
-    final d = tzDt.day.toString().padLeft(2, '0');
-    final mo = tzDt.month.toString().padLeft(2, '0');
+  String _formatTime(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    final mo = dt.month.toString().padLeft(2, '0');
     return '$d/$mo $h:$m';
   }
 
@@ -344,12 +342,12 @@ class _SkipTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              event.title ?? '(no title)',
+              event.title,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             Text(
-              '${_formatTime(event.start)} → ${_formatTime(event.end)}',
+              '${_formatTime(event.startDate)} → ${_formatTime(event.endDate)}',
               style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
           ],

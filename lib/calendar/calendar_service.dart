@@ -1,63 +1,65 @@
-import 'package:device_calendar/device_calendar.dart';
+import 'package:device_calendar_plus/device_calendar_plus.dart';
 
 class CalendarService {
-  final DeviceCalendarPlugin _plugin = DeviceCalendarPlugin();
+  final DeviceCalendar _plugin = DeviceCalendar.instance;
 
   Future<List<Calendar>> listCalendars() async {
-    final result = await _plugin.retrieveCalendars();
-    if (result.isSuccess && result.data != null) {
-      return result.data!.toList();
+    try {
+      return await _plugin.listCalendars();
+    } on DeviceCalendarException {
+      return [];
     }
-    return [];
   }
 
   Future<List<Event>> listEvents(String calendarId) async {
-    final now = TZDateTime.now(local);
-    final params = RetrieveEventsParams(
-      startDate: now,
-      endDate: now.add(const Duration(days: 30)),
-    );
-    final result = await _plugin.retrieveEvents(calendarId, params);
-    if (result.isSuccess && result.data != null) {
-      return result.data!.toList();
+    final now = DateTime.now();
+    try {
+      return await _plugin.listEvents(
+        now,
+        now.add(const Duration(days: 30)),
+        calendarIds: [calendarId],
+      );
+    } on DeviceCalendarException {
+      return [];
     }
-    return [];
   }
 
   Future<String?> createEvent(
     String calendarId,
     String title,
-    TZDateTime start,
-    TZDateTime end, {
+    DateTime start,
+    DateTime end, {
     String? description,
-    bool? allDay,
+    bool? isAllDay,
   }) async {
-    final event = Event(
-      calendarId,
-      title: title,
-      start: start,
-      end: end,
-      description: description,
-      allDay: allDay,
-    );
-    final result = await _plugin.createOrUpdateEvent(event);
-    if (result != null && result.isSuccess) {
-      return result.data;
+    try {
+      return await _plugin.createEvent(
+        calendarId: calendarId,
+        title: title,
+        startDate: start,
+        endDate: end,
+        description: description,
+        isAllDay: isAllDay ?? false,
+      );
+    } on DeviceCalendarException {
+      return null;
     }
-    return null;
   }
 
-  Future<Event?> getEvent(String calendarId, String eventId) async {
-    final params = RetrieveEventsParams(eventIds: [eventId]);
-    final result = await _plugin.retrieveEvents(calendarId, params);
-    if (result.isSuccess && result.data != null && result.data!.isNotEmpty) {
-      return result.data!.first;
+  Future<Event?> getEvent(String eventId) async {
+    try {
+      return await _plugin.getEvent(eventId);
+    } on DeviceCalendarException {
+      return null;
     }
-    return null;
   }
 
-  Future<bool> deleteEvent(String calendarId, String eventId) async {
-    final result = await _plugin.deleteEvent(calendarId, eventId);
-    return result.isSuccess && (result.data ?? false);
+  Future<bool> deleteEvent(String eventId) async {
+    try {
+      await _plugin.deleteEvent(eventId: eventId);
+      return true;
+    } on DeviceCalendarException {
+      return false;
+    }
   }
 }

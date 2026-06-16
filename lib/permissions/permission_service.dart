@@ -1,14 +1,15 @@
+import 'package:device_calendar_plus/device_calendar_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class PermissionService {
   Future<bool> get areCalendarPermissionsGranted async {
-    final status = await Permission.calendarFullAccess.status;
-    return status.isGranted;
+    final status = await DeviceCalendar.instance.hasPermissions();
+    return status == CalendarPermissionStatus.granted;
   }
 
   Future<bool> requestCalendarPermissions() async {
-    final status = await Permission.calendarFullAccess.request();
-    return status.isGranted;
+    final status = await DeviceCalendar.instance.requestPermissions();
+    return status == CalendarPermissionStatus.granted;
   }
 
   Future<bool> get areCalendarPermissionsPermanentlyDenied async {

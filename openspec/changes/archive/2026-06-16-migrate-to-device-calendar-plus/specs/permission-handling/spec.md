@@ -1,10 +1,4 @@
-# Permission Handling
-
-## Purpose
-
-Handle runtime permissions (`READ_CALENDAR` / `WRITE_CALENDAR` / `POST_NOTIFICATIONS`) and gate calendar operations behind a permission check.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Request calendar permissions at runtime
 The system SHALL request calendar permissions via `DeviceCalendar.instance.requestPermissions()`, which returns a `CalendarPermissionStatus` enum (granted, denied, restricted, notDetermined). The system SHALL also request `POST_NOTIFICATIONS` via `permission_handler` separately.

@@ -1,10 +1,4 @@
-# Calendar Access
-
-## Purpose
-
-Provide a thin wrapper around the `device_calendar_plus` plugin to retrieve and manipulate calendar events on the device.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: List available calendars
 The system SHALL retrieve all calendars available on the device via `DeviceCalendar.instance.listCalendars()`, returning at minimum the calendar ID, display name, and writability flag for each. Calendars are returned as a list of `PlatformCalendar` objects. Errors are handled via try/catch on `DeviceCalendarException`.
@@ -22,7 +16,7 @@ The system SHALL retrieve all events for a given calendar ID within a configurab
 
 #### Scenario: Events within time window
 - **WHEN** the user selects a source calendar and the calendar has events in the next 30 days
-- **THEN** the system returns all events with their ID, title, start time, end time, and description
+- **THEN** the system returns all events with their ID, title, start time (via `startDate`), end time (via `endDate`), and description
 
 #### Scenario: Time-bounded query
 - **WHEN** the system queries events for the next 30 days
@@ -33,14 +27,14 @@ The system SHALL retrieve a single calendar event by its event ID via `DeviceCal
 
 #### Scenario: Past event retrieved by ID
 - **WHEN** the system requests an event by its ID and the event's start time is in the past
-- **THEN** the event is returned with all its fields (ID, title, start, end, description)
+- **THEN** the event is returned as a `CalendarEvent` with all its fields (eventId, title, startDate, endDate, description)
 
 #### Scenario: Future event retrieved by ID
 - **WHEN** the system requests an event by its ID and the event's start time is in the future
 - **THEN** the event is returned with all its fields
 
 #### Scenario: Non-existent event ID
-- **WHEN** the system requests an event by an ID that does not exist in the calendar
+- **WHEN** the system requests an event by an ID that does not exist
 - **THEN** the system returns null without error
 
 ### Requirement: Create an event in a calendar
