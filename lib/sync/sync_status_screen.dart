@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/empty_state.dart';
 import 'mapping_database.dart';
 
 class SyncStatusScreen extends StatefulWidget {
@@ -35,10 +37,10 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
     final skipped = entry['skipped'] as int;
     final errors = entry['errors'] as int;
     final parts = <String>[];
-    if (synced > 0) parts.add('Synced: $synced');
-    if (updated > 0) parts.add('Updated: $updated');
-    if (deleted > 0) parts.add('Deleted: $deleted');
-    if (skipped > 0) parts.add('Skipped: $skipped');
+    if (synced > 0) parts.add('$synced synced');
+    if (updated > 0) parts.add('$updated updated');
+    if (deleted > 0) parts.add('$deleted deleted');
+    if (skipped > 0) parts.add('$skipped skipped');
     if (errors > 0) parts.add('$errors errors');
     if (parts.isEmpty) return 'No changes';
     return parts.join(', ');
@@ -69,11 +71,11 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _history.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No sync history yet',
-                    style: TextStyle(color: Colors.grey),
-                  ),
+              ? const EmptyState(
+                  icon: Icons.schedule,
+                  title: 'No sync history yet',
+                  subtitle:
+                      'Run your first sync to see\nresults here',
                 )
               : ListView.separated(
                   itemCount: _history.length,

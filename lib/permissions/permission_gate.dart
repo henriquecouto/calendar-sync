@@ -77,9 +77,14 @@ class _PermissionGateState extends State<PermissionGate> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     if (_loading) {
-      return const MaterialApp(
-        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+      return Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: colorScheme.primary),
+        ),
       );
     }
 
@@ -87,45 +92,46 @@ class _PermissionGateState extends State<PermissionGate> {
       return widget.child;
     }
 
-    return MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.calendar_month, size: 64),
-                const SizedBox(height: 16),
-                const Text(
-                  'Calendar permissions are required to sync events.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16),
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.calendar_month, size: 64, color: colorScheme.primary),
+              const SizedBox(height: 16),
+              Text(
+                'Calendar permissions are required to sync events.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: colorScheme.onSurface,
                 ),
-                const SizedBox(height: 24),
-                if (_permanentlyDenied)
-                  Column(
-                    children: [
-                      const Text(
-                        'Permissions are permanently denied. '
-                        'Please enable them in system Settings.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.red),
-                      ),
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        onPressed: _openSettings,
-                        child: const Text('Open Settings'),
-                      ),
-                    ],
-                  )
-                else
-                  FilledButton(
-                    onPressed: _requestPermissions,
-                    child: const Text('Grant Permissions'),
-                  ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 24),
+              if (_permanentlyDenied)
+                Column(
+                  children: [
+                    Text(
+                      'Permissions are permanently denied. '
+                      'Please enable them in system Settings.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: colorScheme.error),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: _openSettings,
+                      child: const Text('Open Settings'),
+                    ),
+                  ],
+                )
+              else
+                FilledButton(
+                  onPressed: _requestPermissions,
+                  child: const Text('Grant Permissions'),
+                ),
+            ],
           ),
         ),
       ),

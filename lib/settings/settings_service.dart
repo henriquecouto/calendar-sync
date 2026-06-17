@@ -69,7 +69,7 @@ class SettingsService {
 
   Future<bool> get syncEnabled async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keySyncEnabled) ?? true;
+    return prefs.getBool(_keySyncEnabled) ?? false;
   }
 
   Future<void> setSyncEnabled(bool value) async {

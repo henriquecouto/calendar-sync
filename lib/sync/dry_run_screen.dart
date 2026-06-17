@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:device_calendar_plus/device_calendar_plus.dart';
 
 import '../calendar/calendar_service.dart';
 import '../settings/settings_service.dart';
+import '../widgets/sync_plan_card.dart';
+import '../widgets/section_header.dart';
+import '../widgets/empty_state.dart';
 import 'mapping_database.dart';
 import 'sync_engine.dart';
 
@@ -38,7 +40,7 @@ class _DryRunScreenState extends State<DryRunScreen> {
     if (sourceId == null || targetId == null) {
       setState(() {
         _loading = false;
-        _error = 'Select both calendars on the home page first.';
+        _error = 'Select both calendars in the profile settings first.';
       });
       return;
     }
@@ -67,6 +69,8 @@ class _DryRunScreenState extends State<DryRunScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dry Run'),
@@ -81,29 +85,22 @@ class _DryRunScreenState extends State<DryRunScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _buildEmpty(_error!)
-              : _buildResults(),
+              ? EmptyState(
+                  icon: Icons.info_outline,
+                  title: _error!,
+                )
+              : _buildResults(colorScheme),
     );
   }
 
-  Widget _buildEmpty(String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResults() {
+  Widget _buildResults(ColorScheme colorScheme) {
     if (_plan == null) {
-      return _buildEmpty('Tap the play button to run a dry run.\n\n'
-          'This previews what a sync would do without\n'
-          'modifying any calendar data.');
+      return const EmptyState(
+        icon: Icons.preview,
+        title: 'Tap the play button to run a dry run',
+        subtitle:
+            'This previews what a sync would do without\nmodifying any calendar data',
+      );
     }
 
     final plan = _plan!;
@@ -113,7 +110,11 @@ class _DryRunScreenState extends State<DryRunScreen> {
         plan.toDelete.length;
 
     if (total == 0 && plan.errors.isEmpty) {
-      return _buildEmpty('No changes detected. Everything is in sync.');
+      return const EmptyState(
+        icon: Icons.check_circle_outline,
+        title: 'No changes detected',
+        subtitle: 'Everything is in sync',
+      );
     }
 
     return ListView(
@@ -124,291 +125,97 @@ class _DryRunScreenState extends State<DryRunScreen> {
             padding: const EdgeInsets.only(bottom: 16),
             child: Text(
               'Ran at $_timestamp',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: colorScheme.outline),
               textAlign: TextAlign.center,
             ),
           ),
         if (plan.errors.isNotEmpty) ...[
-          _SectionHeader(
+          SectionHeader(
             title: 'Errors',
             count: plan.errors.length,
-            color: Colors.red,
+            color: colorScheme.error,
           ),
-          ...plan.errors.map((e) => _ErrorTile(error: e)),
+          ...plan.errors.map((e) => SyncPlanCard(
+                type: SyncPlanEntryType.error,
+                title: e,
+              )),
           const SizedBox(height: 16),
         ],
         if (plan.toCreate.isNotEmpty) ...[
-          _SectionHeader(
+          SectionHeader(
             title: 'Would Sync',
             count: plan.toCreate.length,
-            color: Colors.green,
+            color: colorScheme.primary,
           ),
-          ...plan.toCreate.map((entry) => _CreateTile(entry: entry)),
+          ...plan.toCreate.map((entry) {
+            final source = entry.sourceEvent;
+            final timeStr =
+                '${_formatTimestamp(entry.projectedStart)} → ${_formatTimestamp(entry.projectedEnd)}';
+            return SyncPlanCard(
+              type: SyncPlanEntryType.create,
+              title: source.title,
+              subtitle: timeStr,
+              detail: entry.projectedTitle,
+              detailLabel: 'Target event',
+            );
+          }),
           const SizedBox(height: 16),
         ],
         if (plan.toUpdate.isNotEmpty) ...[
-          _SectionHeader(
+          SectionHeader(
             title: 'Would Update',
             count: plan.toUpdate.length,
-            color: Colors.orange,
+            color: colorScheme.tertiary,
           ),
-          ...plan.toUpdate.map((entry) => _UpdateTile(entry: entry)),
+          ...plan.toUpdate.map((entry) {
+            final source = entry.sourceEvent;
+            final timeStr =
+                '${_formatTimestamp(source.startDate)} → ${_formatTimestamp(source.endDate)}';
+            return SyncPlanCard(
+              type: SyncPlanEntryType.update,
+              title: source.title,
+              subtitle: timeStr,
+              detail: 'Target event would be replaced',
+            );
+          }),
           const SizedBox(height: 16),
         ],
         if (plan.toSkip.isNotEmpty) ...[
-          _SectionHeader(
+          SectionHeader(
             title: 'Would Skip',
             count: plan.toSkip.length,
-            color: Colors.grey,
+            color: colorScheme.outline,
           ),
-          ...plan.toSkip.map((event) => _SkipTile(event: event)),
+          ...plan.toSkip.map((event) {
+            final timeStr =
+                '${_formatTimestamp(event.startDate)} → ${_formatTimestamp(event.endDate)}';
+            return SyncPlanCard(
+              type: SyncPlanEntryType.skip,
+              title: event.title,
+              subtitle: timeStr,
+            );
+          }),
           const SizedBox(height: 16),
         ],
         if (plan.toDelete.isNotEmpty) ...[
-          _SectionHeader(
+          SectionHeader(
             title: 'Would Delete',
             count: plan.toDelete.length,
-            color: Colors.red,
+            color: colorScheme.error,
           ),
-          ...plan.toDelete.map((entry) => _DeleteTile(mapping: entry)),
+          ...plan.toDelete.map((mapping) {
+            final sourceEventId =
+                mapping['source_event_id'] as String? ?? '?';
+            return SyncPlanCard(
+              type: SyncPlanEntryType.delete,
+              title: 'Source event removed',
+              subtitle: 'Source ID: $sourceEventId',
+              detail: 'Target event would be deleted',
+            );
+          }),
           const SizedBox(height: 16),
         ],
       ],
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final int count;
-  final Color color;
-
-  const _SectionHeader({
-    required this.title,
-    required this.count,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 20,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '$count',
-            style: TextStyle(
-              fontSize: 14,
-              color: color.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CreateTile extends StatelessWidget {
-  final ToCreateEntry entry;
-
-  const _CreateTile({required this.entry});
-
-  String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    final mo = dt.month.toString().padLeft(2, '0');
-    return '$d/$mo $h:$m';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final source = entry.sourceEvent;
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              source.title,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${_formatTime(entry.projectedStart)} → ${_formatTime(entry.projectedEnd)}',
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const Divider(),
-            Text(
-              'Target event: "${entry.projectedTitle}"',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-            ),
-            if (entry.projectedDescription.isNotEmpty)
-              Text(
-                'Description: ${entry.projectedDescription}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _UpdateTile extends StatelessWidget {
-  final ToUpdateEntry entry;
-
-  const _UpdateTile({required this.entry});
-
-  String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    final mo = dt.month.toString().padLeft(2, '0');
-    return '$d/$mo $h:$m';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final source = entry.sourceEvent;
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              source.title,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${_formatTime(source.startDate)} → ${_formatTime(source.endDate)}',
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const Divider(),
-            const Text(
-              'Target event would be replaced',
-              style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SkipTile extends StatelessWidget {
-  final Event event;
-
-  const _SkipTile({required this.event});
-
-  String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    final mo = dt.month.toString().padLeft(2, '0');
-    return '$d/$mo $h:$m';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              event.title,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${_formatTime(event.startDate)} → ${_formatTime(event.endDate)}',
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DeleteTile extends StatelessWidget {
-  final Map<String, Object?> mapping;
-
-  const _DeleteTile({required this.mapping});
-
-  @override
-  Widget build(BuildContext context) {
-    final sourceEventId = mapping['source_event_id'] as String? ?? '?';
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Source event removed',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Source ID: $sourceEventId',
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const Divider(),
-            const Text(
-              'Target event would be deleted',
-              style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorTile extends StatelessWidget {
-  final String error;
-
-  const _ErrorTile({required this.error});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(
-          error,
-          style: const TextStyle(fontSize: 13, color: Colors.red),
-        ),
-      ),
     );
   }
 }
