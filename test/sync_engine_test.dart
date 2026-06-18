@@ -445,7 +445,7 @@ void main() {
           .thenAnswer((_) async => false);
       when(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Test', isAllDay: false,
+        description: 'Test\n---\n🔃 Automatically created by CalSync', isAllDay: false,
       )).thenAnswer((_) async => 'new-id-1');
       when(() => mappingDb.insertMapping(
         profileId: profileId,
@@ -468,7 +468,7 @@ void main() {
 
       verify(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Test', isAllDay: false,
+        description: 'Test\n---\n🔃 Automatically created by CalSync', isAllDay: false,
       )).called(1);
       expect(result.synced, ['src-1']);
     });
@@ -517,7 +517,7 @@ void main() {
       );
       when(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Test', isAllDay: false,
+        description: 'Test\n---\n🔃 Automatically created by CalSync', isAllDay: false,
       )).thenAnswer((_) async => 'new-id-2');
       when(() => calendarService.deleteEvent('tgt-1'))
           .thenAnswer((_) async => true);
@@ -543,7 +543,7 @@ void main() {
       verify(() => calendarService.deleteEvent('tgt-1')).called(1);
       verify(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Test', isAllDay: false,
+        description: 'Test\n---\n🔃 Automatically created by CalSync', isAllDay: false,
       )).called(1);
       expect(result.updated, ['src-1']);
     });
@@ -725,6 +725,159 @@ void main() {
       expect(plan.toCreate, hasLength(1));
     });
 
+    test('event with marker in description is skipped (description-based detection)', () async {
+      final srcEvent = Event(
+        eventId: 'src-1',
+        instanceId: 'src-1',
+        calendarId: sourceCalId,
+        title: 'Test',
+        startDate: futureEnd.subtract(const Duration(hours: 1)),
+        endDate: futureEnd,
+        description: 'Test\n---\n🔃 Automatically created by CalSync',
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
+      );
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => []);
+
+      final plan = await engine.runDryRun(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toCreate, isEmpty);
+      expect(plan.toSkip.any((e) => e.eventId == 'src-1'), isTrue);
+    });
+
+    test('user event without marker is classified normally', () async {
+      final srcEvent = Event(
+        eventId: 'src-1',
+        instanceId: 'src-1',
+        calendarId: sourceCalId,
+        title: 'Test',
+        startDate: futureEnd.subtract(const Duration(hours: 1)),
+        endDate: futureEnd,
+        description: 'User created event',
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
+      );
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => []);
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+
+      final plan = await engine.runDryRun(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toCreate, hasLength(1));
+    });
+
+    test('update detection correctly handles marked description via startsWith', () async {
+      final start = DateTime.utc(2026, 6, 23, 14, 0);
+      final end = DateTime.utc(2026, 6, 23, 15, 0);
+      final srcEvent = Event(
+        eventId: 'src-1',
+        instanceId: 'src-1',
+        calendarId: sourceCalId,
+        title: 'Test Event',
+        startDate: start,
+        endDate: end,
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
+      );
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId)).thenAnswer(
+        (_) async => [{
+          'id': 1, 'source_event_id': 'src-1',
+          'target_event_id': 'tgt-1', 'target_calendar_id': targetCalId,
+        }],
+      );
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-1'))
+          .thenAnswer((_) async => true);
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
+        (_) async => Event(
+          eventId: 'tgt-1',
+          instanceId: 'tgt-1',
+          calendarId: targetCalId,
+          title: 'Busy',
+          description: 'Test Event\n---\n🔃 Automatically created by CalSync',
+          startDate: start,
+          endDate: end,
+          isAllDay: false,
+          availability: EventAvailability.busy,
+          status: EventStatus.none,
+          isRecurring: false,
+        ),
+      );
+
+      final plan = await engine.runDryRun(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toUpdate, isEmpty);
+      expect(plan.toSkip.any((e) => e.eventId == 'src-1'), isTrue);
+    });
+
+    test('null description does not crash (falls back to sync_created_events)', () async {
+      final srcEvent = Event(
+        eventId: 'src-1',
+        instanceId: 'src-1',
+        calendarId: sourceCalId,
+        title: 'Test',
+        startDate: futureEnd.subtract(const Duration(hours: 1)),
+        endDate: futureEnd,
+        description: null,
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
+      );
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => []);
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => true);
+
+      final plan = await engine.runDryRun(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toCreate, isEmpty);
+      expect(plan.toSkip.any((e) => e.eventId == 'src-1'), isTrue);
+    });
+
     test('after CREATE, sync_created_events is called with target calendar and event', () async {
       final srcEvent = _makeEvent('src-1', end: futureEnd, start: futureEnd.subtract(const Duration(hours: 1)));
 
@@ -738,7 +891,7 @@ void main() {
           .thenAnswer((_) async => false);
       when(() => calendarService.createEvent(
         targetCalId, syncName, any(), any(),
-        description: 'Test Event', isAllDay: false,
+        description: 'Test Event\n---\n🔃 Automatically created by CalSync', isAllDay: false,
       )).thenAnswer((_) async => 'new-id');
       when(() => mappingDb.insertMapping(
         profileId: profileId,
@@ -817,7 +970,7 @@ void main() {
       );
       when(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Test', isAllDay: false,
+        description: 'Test\n---\n🔃 Automatically created by CalSync', isAllDay: false,
       )).thenAnswer((_) async => 'new-id');
       when(() => calendarService.deleteEvent('tgt-1'))
           .thenAnswer((_) async => true);
@@ -890,7 +1043,7 @@ void main() {
           .thenAnswer((_) async => false);
       when(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Test', isAllDay: false,
+        description: 'Test\n---\n🔃 Automatically created by CalSync', isAllDay: false,
       )).thenAnswer((_) async => 'tgt-A');
       when(() => mappingDb.insertMapping(
         profileId: profileId,
@@ -1006,7 +1159,7 @@ void main() {
           .thenAnswer((_) async => false);
       when(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Weekly Standup', isAllDay: false,
+        description: 'Weekly Standup\n---\n🔃 Automatically created by CalSync', isAllDay: false,
         recurrenceRule: rule,
       )).thenAnswer((_) async => 'new-id-1');
       when(() => mappingDb.insertMapping(
@@ -1030,7 +1183,7 @@ void main() {
 
       verify(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Weekly Standup', isAllDay: false,
+        description: 'Weekly Standup\n---\n🔃 Automatically created by CalSync', isAllDay: false,
         recurrenceRule: rule,
       )).called(1);
       expect(result.synced, ['src-1']);
@@ -1079,7 +1232,7 @@ void main() {
           .thenAnswer((_) async => baseEvent);
       when(() => calendarService.createEvent(
         targetCalId, syncName, start, end,
-        description: 'Weekly Standup', isAllDay: false,
+        description: 'Weekly Standup\n---\n🔃 Automatically created by CalSync', isAllDay: false,
         recurrenceRule: rule,
       )).thenAnswer((_) async => 'new-id-1');
       when(() => mappingDb.insertMapping(
