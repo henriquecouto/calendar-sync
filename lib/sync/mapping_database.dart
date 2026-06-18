@@ -45,7 +45,6 @@ class MappingDatabase {
       limit: 1,
     );
     final synced = result.isNotEmpty;
-    print('[DB] isEventSynced profile=$profileId srcCal=$sourceCalendarId srcEvt=$sourceEventId → $synced');
     return synced;
   }
 
@@ -58,7 +57,6 @@ class MappingDatabase {
     required String syncedAt,
   }) async {
     final db = await database;
-    print('[DB] insertMapping profile=$profileId srcCal=$sourceCalendarId srcEvt=$sourceEventId tgtCal=$targetCalendarId tgtEvt=$targetEventId');
     await db.insert(
       _tableName,
       {
@@ -84,7 +82,6 @@ class MappingDatabase {
           '$_columnProfileId = ? AND $_columnSourceCalendarId = ?',
       whereArgs: [profileId, sourceCalendarId],
     );
-    print('[DB] listMappingsForCalendar profile=$profileId srcCal=$sourceCalendarId → ${result.length} rows');
     return result;
   }
 
@@ -172,7 +169,6 @@ class MappingDatabase {
       limit: 1,
     );
     final created = result.isNotEmpty;
-    print('[DB] isEventCreatedBySync cal=$calendarId evt=$eventId → $created');
     return created;
   }
 

@@ -60,7 +60,6 @@ class SyncEngine {
     required String targetCalendarId,
     required String syncEventName,
   }) async {
-    print('[SYNC] runSync START profile=$profileId src=$sourceCalendarId tgt=$targetCalendarId name="$syncEventName"');
     final plan = await _classify(
       profileId: profileId,
       sourceCalendarId: sourceCalendarId,
@@ -68,7 +67,6 @@ class SyncEngine {
       syncEventName: syncEventName,
     );
 
-    print('[SYNC] classify done: toCreate=${plan.toCreate.length} toUpdate=${plan.toUpdate.length} toDelete=${plan.toDelete.length} toSkip=${plan.toSkip.length} errors=${plan.errors.length}');
 
     if (plan.errors.isNotEmpty) {
       return SyncResult(
@@ -88,7 +86,6 @@ class SyncEngine {
       syncEventName: syncEventName,
     );
 
-    print('[SYNC] runSync DONE synced=${result.synced.length} updated=${result.updated.length} deleted=${result.deleted.length} skipped=${result.skipped.length} errors=${result.errors.length}');
     return result;
   }
 
@@ -116,12 +113,10 @@ class SyncEngine {
     required List<Map<String, Object?>> toDelete,
     required List<String> errors,
   }) async {
-    print('[SYNC] orphanCheck: ${mappings.length} mappings, ${sourceEventIds.length} source event IDs in window');
     for (final mapping in mappings) {
       final sourceEventId = mapping['source_event_id'] as String;
 
       if (!sourceEventIds.contains(sourceEventId)) {
-        print('[SYNC] orphan: mapping for $sourceEventId not in source window → investigating');
         final targetEventId = mapping['target_event_id'] as String;
         try {
           final targetEvent = await _calendarService.getEvent(
@@ -129,7 +124,6 @@ class SyncEngine {
           );
 
           if (targetEvent == null) {
-            print('[SYNC] orphan: target $targetEventId gone → removing mapping + createdEvent');
             final mappingId = mapping['id'] as int;
             await _mappingDb.deleteMapping(mappingId);
             await _mappingDb.deleteCreatedEvent(
@@ -149,10 +143,8 @@ class SyncEngine {
           );
 
           if (sourceEvent != null) {
-            print('[SYNC] orphan: source $sourceEventId still exists → re-adding to sourceEvents for re-classification');
             sourceEvents.add(sourceEvent);
           } else {
-            print('[SYNC] orphan: source $sourceEventId confirmed gone → marking for delete');
             toDelete.add(mapping);
           }
         } catch (e) {
@@ -181,13 +173,6 @@ class SyncEngine {
       sourceCalendarId,
     );
 
-    final totalMappings = mappings.length;
-    print('[SYNC] === DB STATE before classify === profile=$profileId srcCal=$sourceCalendarId totalMappings=$totalMappings ');
-    // raw count for debugging
-    final db = await _mappingDb.database;
-    final rawCount = (await db.rawQuery('SELECT COUNT(*) as cnt FROM sync_mappings WHERE profile_id = ? AND source_calendar_id = ?', [profileId, sourceCalendarId])).first['cnt'];
-    print('[SYNC] raw SQL count sync_mappings: $rawCount (listMappingsForCalendar returned: $totalMappings)');
-
     final sourceEventIds = sourceEvents.map((e) => e.eventId).toSet();
 
     await _processOrphanMappings(
@@ -201,10 +186,8 @@ class SyncEngine {
       errors: errors,
     );
 
-    print('[SYNC] classify: ${sourceEvents.length} source events to classify');
     for (final event in sourceEvents) {
       final eventId = event.eventId;
-      final eventTitle = event.title;
 
       try {
         final createdBySync = await _mappingDb.isEventCreatedBySync(
@@ -212,7 +195,6 @@ class SyncEngine {
           eventId,
         );
         if (createdBySync) {
-          print('[SYNC] classify: "$eventTitle" ($eventId) → SKIP (created by sync)');
           toSkip.add(event);
           continue;
         }
@@ -246,7 +228,6 @@ class SyncEngine {
           final titleChanged = event.title != targetEvent.description;
 
           if (!timeChanged && !titleChanged) {
-            print('[SYNC] classify: "$eventTitle" ($eventId) → SKIP (already synced, no changes)');
             toSkip.add(event);
             continue;
           }
@@ -255,8 +236,6 @@ class SyncEngine {
             sourceEvent: event,
             mapping: Map<String, Object?>.from(mapping),
         ));
-        print('[SYNC] classify: "$eventTitle" ($eventId) → CREATE (target="$syncEventName")');
-          print('[SYNC] classify: "$eventTitle" ($eventId) → UPDATE (fields changed)');
           continue;
         }
 
@@ -302,7 +281,6 @@ class SyncEngine {
       final targetCalId = entry['target_calendar_id'] as String;
 
       try {
-        print('[SYNC] execute: DELETE target $targetEventId from $targetCalId (source $sourceEventId gone)');
         await _calendarService.deleteEvent(targetEventId);
         await _mappingDb.deleteMapping(mappingId);
         await _mappingDb.deleteCreatedEvent(targetCalId, targetEventId);
@@ -345,7 +323,6 @@ class SyncEngine {
           targetEventId,
         );
 
-        print('[SYNC] execute: CREATE "$syncEventName" on $targetCalendarId id=$targetEventId (source "${event.title}" id=$eventId) → inserted sync_created_events');
         synced.add(eventId);
       } catch (e) {
         errors.add('$eventId: $e');
@@ -376,7 +353,6 @@ class SyncEngine {
 
         await _calendarService.deleteEvent(targetEventId);
         await _mappingDb.deleteCreatedEvent(targetCalId, targetEventId);
-        print('[SYNC] execute: UPDATE deleted old tgt $targetEventId from $targetCalId → replaced with $newTargetEventId');
 
         await _mappingDb.insertMapping(
           profileId: profileId,
