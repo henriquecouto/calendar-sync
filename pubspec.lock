@@ -61,34 +61,34 @@ packages:
     dependency: "direct main"
     description:
       name: device_calendar_plus
-      sha256: d68766e3a7bbb0f701ab7a7fe33a10ac43f2618c0cd015d32202a8b9dd1ee7be
+      sha256: b26e053119da51ea18357154f440e0dd6ebd9de51661f6844188e81410546193
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.0"
+    version: "0.7.1"
   device_calendar_plus_android:
     dependency: transitive
     description:
       name: device_calendar_plus_android
-      sha256: c83590730194fa181e0444ff07e40b5e1aec3c19edfd9e22779c7eb9e85b8a5a
+      sha256: "81c3e107f469e1acb5c8f926bc3f1b8106d0bb25f94d109ae4231982e2e7c937"
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.0"
+    version: "0.7.0"
   device_calendar_plus_ios:
     dependency: transitive
     description:
       name: device_calendar_plus_ios
-      sha256: "47fa6e3341c48e292c39aa0464dbf161e59e02056db874d679e41ccb55306b29"
+      sha256: e261e7238d46ca6d1f07fda86a3c4abdd0ff02cef08313c401a2eb203db30d62
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.0"
+    version: "0.7.0"
   device_calendar_plus_platform_interface:
     dependency: transitive
     description:
       name: device_calendar_plus_platform_interface
-      sha256: e494855877cfbaab0040ed99d213d5ab117d68fc0503bfeb55d427e98c8396d9
+      sha256: "474169d6d32654e190c2f1d50c82a0090d475c33c904177f96af831ba46c306e"
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.0"
+    version: "0.7.0"
   dynamic_color:
     dependency: "direct main"
     description:
