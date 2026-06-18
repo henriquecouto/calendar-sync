@@ -1,0 +1,2 @@
+- Update pubspec.yaml
+- fix: use canonical_time for recurring event change detection (#24)
