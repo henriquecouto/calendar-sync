@@ -4,7 +4,7 @@ import 'package:device_calendar_plus/device_calendar_plus.dart';
 import '../calendar/calendar_service.dart';
 import 'mapping_database.dart';
 
-const _syncMarker = '🔃 Automatically created by CalSync';
+const _syncMarker = '#### Automatically created by CalSync ####';
 
 class SyncPlan {
   final List<ToCreateEntry> toCreate;
@@ -396,7 +396,7 @@ class SyncEngine {
           syncEventName,
           entry.projectedStart,
           entry.projectedEnd,
-          description: '${event.title}\n\n---\n$_syncMarker',
+          description: '${event.title}\n\n\n$_syncMarker',
           isAllDay: entry.projectedAllDay,
               recurrenceRule:
                   hasRecurrence ? event.recurrenceRule : null,
@@ -446,7 +446,7 @@ class SyncEngine {
           syncEventName,
           event.startDate,
           event.endDate,
-          description: '${event.title}\n\n---\n$_syncMarker',
+          description: '${event.title}\n\n\n$_syncMarker',
           isAllDay: event.isAllDay,
               recurrenceRule:
                   hasRecurrence ? event.recurrenceRule : null,
