@@ -1,0 +1,1 @@
+- feat: embed sync marker in target event descriptions for robust loop detection (#25)
