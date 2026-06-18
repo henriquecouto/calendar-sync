@@ -7,52 +7,65 @@ Detect unsynced events via a local mapping table and create corresponding events
 ## Requirements
 
 ### Requirement: Detect already-synced events
-The system SHALL query the local mapping table to determine whether a source event (identified by source calendar ID + source event ID) has already been synced to a target calendar. If already synced, the system SHALL compare the source event's start time, end time, and title with the target event's fields and update the target event if any differ. If the target event's start or end time is null, the system SHALL skip the event. If no fields differ, the event is skipped.
+The system SHALL query the local mapping table to determine whether a source event (identified by profile ID + source calendar ID + source event ID) has already been synced to a target calendar for a given profile. If already synced, the system SHALL compare the source event's start time, end time, and title with the target event's fields and update the target event if any differ. If the target event's start or end time is null, the system SHALL skip the event. If no fields differ, the event is skipped.
 
 #### Scenario: Event is already synced with no changes
-- **WHEN** a source event's (calendar_id, event_id) pair exists in the mapping table and its start, end, and title match the target event
+- **WHEN** a source event's (profile_id, calendar_id, event_id) pair exists in the mapping table and its start, end, and title match the target event
 - **THEN** the system skips that event
 
 #### Scenario: Event is already synced with time change
-- **WHEN** a source event's (calendar_id, event_id) pair exists in the mapping table and its start or end time differ from the target event
+- **WHEN** a source event's (profile_id, calendar_id, event_id) pair exists in the mapping table and its start or end time differ from the target event
 - **THEN** the target event is updated with the new times
 
 #### Scenario: Event is already synced with title change
-- **WHEN** a source event's (calendar_id, event_id) pair exists in the mapping table and its title differs from the target event's description
+- **WHEN** a source event's (profile_id, calendar_id, event_id) pair exists in the mapping table and its title differs from the target event's description
 - **THEN** the target event's description is updated to the new source title
 
 #### Scenario: Event is not yet synced
-- **WHEN** a source event's (calendar_id, event_id) pair is absent from the mapping table
+- **WHEN** a source event's (profile_id, calendar_id, event_id) pair is absent from the mapping table
 - **THEN** the system marks it for sync and creates a target event
 
 #### Scenario: Target event has null times
-- **WHEN** a source event's (calendar_id, event_id) pair exists in the mapping table and the target event's start or end time is null
+- **WHEN** a source event's (profile_id, calendar_id, event_id) pair exists in the mapping table and the target event's start or end time is null
 - **THEN** the system skips the event without crashing
 
 ### Requirement: Create synced event with user-provided name
-The system SHALL create a target event using the user-configured sync name (not the original event title). The target event SHALL copy the source event's start time and end time. The target event's description SHALL be set to the original source event title.
+The system SHALL create a target event using the user-configured sync name (not the original event title). The target event SHALL copy the source event's start time and end time. The target event's description SHALL be set to the original source event title. If the source event is recurring (`isRecurring == true`), the target event SHALL also be created as recurring, copying the source event's `recurrenceRule`.
 
 #### Scenario: Synced event uses custom name and preserves source title as description
 - **WHEN** the user has configured "Busy" as the sync name and a source event titled "Doctor Appointment" appears
 - **THEN** the target event has the title "Busy", the same start/end times as the source event, and description "Doctor Appointment"
 
+#### Scenario: Recurring source creates recurring target
+- **WHEN** the source event has `isRecurring: true`, `eventId: "100"`, `instanceId: "100"`, and `recurrenceRule: "FREQ=WEEKLY;BYDAY=MO"`
+- **THEN** the target event is created with the same recurrence rule
+
+#### Scenario: Non-recurring source creates non-recurring target
+- **WHEN** the source event has `isRecurring: false`
+- **THEN** the target event is created without recurrence fields
+
 ### Requirement: Record sync mappings
-After successfully creating a target event, the system SHALL insert a row into the mapping table recording (source_calendar_id, source_event_id, target_calendar_id, target_event_id, synced_at). When a source event is deleted, the system SHALL remove the corresponding mapping row after deleting the target event.
+After successfully creating a target event, the system SHALL insert a row into the mapping table recording (profile_id, source_calendar_id, source_event_id, target_calendar_id, target_event_id, synced_at). When a source event is deleted, the system SHALL remove the corresponding mapping row after deleting the target event.
 
 #### Scenario: Mapping recorded after sync
-- **WHEN** a source event is synced and a target event is created with ID "TGT-456"
-- **THEN** the mapping table contains a row linking source event "SRC-123" (calendar 1) to target event "TGT-456" (calendar 2) with the current timestamp
+- **WHEN** a source event is synced for profile "abc-123" and a target event is created with ID "TGT-456"
+- **THEN** the mapping table contains a row linking profile "abc-123", source event "SRC-123" (calendar 1) to target event "TGT-456" (calendar 2) with the current timestamp
 
-#### Scenario: Duplicate mapping prevented
-- **WHEN** the same source event is encountered twice before the first sync completes
-- **THEN** the UNIQUE constraint on (source_calendar_id, source_event_id) prevents a duplicate mapping and a second target event is not created
+#### Scenario: Duplicate mapping prevented within same profile
+- **WHEN** the same source event is encountered twice for the same profile before the first sync completes
+- **THEN** the UNIQUE constraint on (profile_id, source_calendar_id, source_event_id) prevents a duplicate mapping and a second target event is not created
+
+#### Scenario: Same event synced by different profiles is allowed
+- **WHEN** a source event "SRC-123" on calendar "CAL-A" is synced by profile "P1" to calendar "CAL-B"
+- **AND** the same source event "SRC-123" on calendar "CAL-A" is synced by profile "P2" to calendar "CAL-C"
+- **THEN** both profiles SHALL have independent mapping rows in the table without conflict
 
 #### Scenario: Mapping removed on source event deletion
-- **WHEN** a source event "SRC-789" with mapping to target event "TGT-012" is deleted from the source calendar
+- **WHEN** a source event "SRC-789" with mapping for profile "abc-123" to target event "TGT-012" is deleted from the source calendar
 - **THEN** the mapping row is removed after the target event is deleted
 
 ### Requirement: Run full sync cycle
-The system SHALL execute a sync cycle: list source events (from now to now+30d), query mapping table, for each mapped source event absent from the fetch window check the target event's end time against a 7-day threshold (skip if older, confirm via source-by-ID if recent), create target events for unmapped source events, update target events for already-mapped source events whose fields changed, and record new mappings.
+The system SHALL execute a sync cycle for a given profile: list source events (from now to now+30d), query mapping table filtered by profile ID and source calendar, for each mapped source event absent from the fetch window check the target event's end time against a 7-day threshold (skip if older, confirm via source-by-ID if recent), create target events for unmapped source events, update target events for already-mapped source events whose fields changed, and record new mappings with the profile ID. Recurring event instances (`eventId != instanceId`) are fetched via base event ID and never directly classified; the base event is classified once per cycle instead.
 
 #### Scenario: Full sync with new events
 - **WHEN** the source calendar has 3 events and none are in the mapping table
@@ -73,6 +86,16 @@ The system SHALL execute a sync cycle: list source events (from now to now+30d),
 #### Scenario: Full sync with additions, deletions, and updates
 - **WHEN** the source calendar had 4 synced events and now has 3 (1 deleted, 1 new, 1 modified, 1 unchanged)
 - **THEN** the system deletes 1, creates 1, updates 1, and skips 1
+
+#### Scenario: Full sync scoped to correct profile
+- **WHEN** profile "P1" syncs from calendar "CAL-A" and profile "P2" syncs from calendar "CAL-A"
+- **AND** profile "P1" has existing mappings for events on "CAL-A"
+- **THEN** profile "P2" SHALL NOT see profile "P1"'s mappings and SHALL classify its own source events independently
+
+#### Scenario: Full sync with recurring event
+- **WHEN** the source calendar has a recurring event "Weekly Standup" (base ID "100", 5 instances in window)
+- **THEN** the system creates exactly 1 target recurring event for the base "100"
+- **AND** all 5 instances are skipped
 
 #### Scenario: Old past event is ignored
 - **WHEN** a synced source event is absent from the fetch window AND its target event's end time is more than 7 days in the past
@@ -131,3 +154,81 @@ The system SHALL detect changes in all-day events using the same `millisecondsSi
 
 ### Requirement: No date projection helpers
 The sync engine SHALL NOT use `_localMidnight` or `_projectEnd` helpers. All-day event dates SHALL pass through from source to target without modification.
+
+### Requirement: Skip recurring event instances
+When a source event is an instance of a recurring event (`eventId != instanceId`), the system SHALL fetch the base recurring event by `eventId` once per sync cycle and classify it instead of the instance (using the instance's start/end times but the base's recurrence rule). If the base event is already mapped, the classification detects time or title changes for updates. The instance itself is never directly classified as CREATE or UPDATE.
+
+#### Scenario: Instance of already-synced recurring event is skipped but base is checked
+- **WHEN** a recurring base event "100" is already mapped
+- **AND** an instance appears with `eventId: "100"` and `instanceId: "100@timestamp"`
+- **THEN** the instance is skipped
+- **AND** the base event "100" is fetched and classified to detect changes (time/title)
+
+#### Scenario: Instance of unsynced recurring event triggers base sync
+- **WHEN** a recurring base event "100" is NOT yet mapped
+- **AND** an instance appears with `eventId: "100"` and `instanceId: "100@timestamp"`
+- **THEN** the base event "100" is fetched and classified as toCreate using the instance's start/end times and the base's recurrence rule
+
+#### Scenario: Changed recurring event detected via instance
+- **WHEN** a recurring event "100" is already synced with start=10:00 end=11:00
+- **AND** the user changes it to start=14:00 end=15:00
+- **AND** instances appear in the next sync cycle
+- **THEN** the base event is fetched, time change is detected, and the target is updated
+
+#### Scenario: Non-recurring event is classified normally
+- **WHEN** a source event has `eventId == instanceId`
+- **THEN** the system classifies it normally using existing mapping checks
+
+### Requirement: CalendarService supports recurrence parameter
+The `CalendarService.createEvent()` method SHALL accept an optional `RecurrenceRule? recurrenceRule` parameter. When provided, it SHALL be passed to the `device_calendar_plus` plugin's `createEvent` call.
+
+#### Scenario: Recurrence rule passed to plugin
+- **WHEN** `createEvent` is called with `recurrenceRule: WeeklyRecurrence(daysOfWeek: [DayOfWeek.monday])`
+- **THEN** the plugin creates a recurring event with the given recurrence rule
+
+### Requirement: Sync engine accepts profile ID
+The sync engine SHALL accept a `profileId` parameter for all sync operations (`runSync`, `runDryRun`). All mapping queries (isEventSynced, listMappingsForCalendar, insertMapping) SHALL include `profileId` as a filter. All status inserts SHALL include `profileId`.
+
+#### Scenario: Sync with profile ID
+- **WHEN** `runSync` is called with `profileId: "abc-123"`
+- **THEN** all mapping lookups and inserts SHALL include `profileId: "abc-123"` in their WHERE clauses
+- **AND** the status entry SHALL include `profile_id: "abc-123"`
+
+#### Scenario: Dry run with profile ID
+- **WHEN** `runDryRun` is called with `profileId: "abc-123"`
+- **THEN** all mapping lookups SHALL include `profileId: "abc-123"` in their WHERE clauses
+
+### Requirement: Skip source events that were created by sync engine
+The system SHALL maintain a global `sync_created_events` table recording `(calendar_id, event_id)` for every target event created by any sync profile. Before classifying any source event as new, the system SHALL check this table. If the source event was created by the sync engine (any profile), the system SHALL skip it to prevent sync loops. When a target event is deleted (orphan processing, profile deletion, or update replacement), the corresponding row in `sync_created_events` SHALL be removed.
+
+#### Scenario: Event created by another profile is skipped
+- **WHEN** Profile A (Work→Personal) creates "Busy" in the Personal calendar as evt-100
+- **AND** `sync_created_events` contains `(Personal, evt-100)`
+- **AND** Profile B (Personal→Work) runs a sync cycle scanning the Personal calendar
+- **THEN** Profile B SHALL query `sync_created_events` for evt-100
+- **AND** finding the entry, Profile B SHALL skip evt-100 without creating a new event in Work
+
+#### Scenario: User-created event is NOT skipped
+- **WHEN** the user manually creates "Reunião 10h" in the Work calendar as evt-001
+- **AND** `sync_created_events` does NOT contain `(Work, evt-001)`
+- **AND** a profile syncs from Work
+- **THEN** evt-001 SHALL be classified normally (create or skip based on mapping)
+
+#### Scenario: Entry inserted on target event creation
+- **WHEN** the sync engine successfully creates a target event evt-200 in calendar "CAL-B"
+- **THEN** a row `(CAL-B, evt-200)` SHALL be inserted into `sync_created_events`
+
+#### Scenario: Entry removed on target event deletion
+- **WHEN** the sync engine deletes a target event evt-200 during orphan processing
+- **THEN** the row `(calendar, evt-200)` SHALL be removed from `sync_created_events`
+
+#### Scenario: Entry replaced on target event update
+- **WHEN** the sync engine updates a target event by creating a replacement evt-300 and deleting the old evt-200
+- **THEN** the old row `(calendar, evt-200)` SHALL be removed
+- **AND** a new row `(calendar, evt-300)` SHALL be inserted
+
+#### Scenario: Full graph sync without loops
+- **WHEN** 6 profiles form a complete directed graph between calendars Work1, Work2, and Personal (all bidirectional pairs)
+- **AND** a user creates a single event manually in Work1
+- **THEN** each profile SHALL sync the event to its target exactly once
+- **AND** no profile SHALL create more than one target event for the same logical source event
