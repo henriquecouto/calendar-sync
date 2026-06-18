@@ -74,6 +74,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (!_calendarExists(sourceId) || !_calendarExists(targetId)) return;
 
+    debugPrint('[MANUAL-SYNC] syncing profile "${profile.name}" (${profile.id})');
     final engine = SyncEngine(_calendarService, _mappingDb);
     final result = await engine.runSync(
       profileId: profile.id,
@@ -81,6 +82,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       targetCalendarId: targetId,
       syncEventName: syncName,
     );
+
+    debugPrint('[MANUAL-SYNC] profile "${profile.name}" → synced=${result.synced.length} deleted=${result.deleted.length} skipped=${result.skipped.length} errors=${result.errors.length}');
 
     await _mappingDb.insertStatus(
       profileId: profile.id,

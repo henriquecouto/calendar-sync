@@ -44,7 +44,9 @@ class MappingDatabase {
       whereArgs: [profileId, sourceCalendarId, sourceEventId],
       limit: 1,
     );
-    return result.isNotEmpty;
+    final synced = result.isNotEmpty;
+    print('[DB] isEventSynced profile=$profileId srcCal=$sourceCalendarId srcEvt=$sourceEventId → $synced');
+    return synced;
   }
 
   Future<void> insertMapping({
@@ -56,6 +58,7 @@ class MappingDatabase {
     required String syncedAt,
   }) async {
     final db = await database;
+    print('[DB] insertMapping profile=$profileId srcCal=$sourceCalendarId srcEvt=$sourceEventId tgtCal=$targetCalendarId tgtEvt=$targetEventId');
     await db.insert(
       _tableName,
       {
@@ -75,12 +78,14 @@ class MappingDatabase {
     String sourceCalendarId,
   ) async {
     final db = await database;
-    return db.query(
+    final result = await db.query(
       _tableName,
       where:
           '$_columnProfileId = ? AND $_columnSourceCalendarId = ?',
       whereArgs: [profileId, sourceCalendarId],
     );
+    print('[DB] listMappingsForCalendar profile=$profileId srcCal=$sourceCalendarId → ${result.length} rows');
+    return result;
   }
 
   Future<void> deleteMapping(int id) async {
@@ -166,7 +171,9 @@ class MappingDatabase {
       whereArgs: [calendarId, eventId],
       limit: 1,
     );
-    return result.isNotEmpty;
+    final created = result.isNotEmpty;
+    print('[DB] isEventCreatedBySync cal=$calendarId evt=$eventId → $created');
+    return created;
   }
 
   Future<void> insertCreatedEvent(

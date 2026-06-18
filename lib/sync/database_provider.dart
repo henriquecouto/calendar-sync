@@ -23,10 +23,13 @@ class DatabaseProvider {
     final dbPath = await getDatabasesPath();
     final name = _testPath ?? 'calendar_sync.db';
     final path = join(dbPath, name);
-    return openDatabase(
+    final db = await openDatabase(
       path,
       version: 4,
       singleInstance: false,
+      onConfigure: (db) async {
+        await db.rawQuery('PRAGMA journal_mode=WAL');
+      },
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE sync_mappings (
@@ -93,6 +96,21 @@ class DatabaseProvider {
           await db.execute('ALTER TABLE sync_mappings ADD COLUMN profile_id TEXT NOT NULL DEFAULT \'\'');
           await db.execute('ALTER TABLE sync_status ADD COLUMN profile_id TEXT NOT NULL DEFAULT \'\'');
           await db.execute('''
+            CREATE TABLE sync_mappings_new (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              profile_id TEXT NOT NULL DEFAULT '',
+              source_calendar_id TEXT NOT NULL,
+              source_event_id TEXT NOT NULL,
+              target_calendar_id TEXT NOT NULL,
+              target_event_id TEXT NOT NULL,
+              synced_at TEXT NOT NULL,
+              UNIQUE(profile_id, source_calendar_id, source_event_id)
+            )
+          ''');
+          await db.execute('INSERT INTO sync_mappings_new SELECT * FROM sync_mappings');
+          await db.execute('DROP TABLE sync_mappings');
+          await db.execute('ALTER TABLE sync_mappings_new RENAME TO sync_mappings');
+          await db.execute('''
             CREATE TABLE IF NOT EXISTS sync_profiles (
               id TEXT PRIMARY KEY,
               name TEXT NOT NULL UNIQUE,
@@ -113,5 +131,6 @@ class DatabaseProvider {
         }
       },
     );
+    return db;
   }
 }

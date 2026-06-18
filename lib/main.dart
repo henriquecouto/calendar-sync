@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:workmanager/workmanager.dart';
+
+import 'calendar/calendar_service.dart';
 import 'screens/dashboard_screen.dart';
 import 'permissions/permission_gate.dart';
-import 'settings/profile_service.dart';
 import 'background/sync_task.dart';
 
 Future<void> _migrateIfNeeded() async {
@@ -19,45 +23,27 @@ Future<void> _migrateIfNeeded() async {
     return;
   }
 
-  final targetId = prefs.getString('target_calendar_id');
-  final eventName = prefs.getString('sync_event_name') ?? '';
-  final interval = prefs.getInt('sync_interval_minutes') ?? 60;
-  final enabled = prefs.getBool('sync_enabled') ?? false;
+  final dbPath = await getDatabasesPath();
+  final dbFile = File(join(dbPath, 'calendar_sync.db'));
 
-  final profileService = ProfileService();
-  final profile = await profileService.createProfile(
-    name: 'Default',
-    sourceCalendarId: sourceId,
-    targetCalendarId: targetId,
-    eventName: eventName,
-    intervalMinutes: interval,
-    enabled: enabled,
-  );
+  if (await dbFile.exists()) {
+    try {
+      final oldDb = await openDatabase(dbFile.path, readOnly: true);
+      final mappings = await oldDb.query('sync_mappings',
+          columns: ['target_calendar_id', 'target_event_id']);
+      await oldDb.close();
 
-  final db = await profileService.database;
-  await db.update(
-    'sync_mappings',
-    {'profile_id': profile.id},
-    where: "profile_id = ''",
-  );
-  await db.update(
-    'sync_status',
-    {'profile_id': profile.id},
-    where: "profile_id = ''",
-  );
-  final mappings = await db.query('sync_mappings',
-      columns: ['target_calendar_id', 'target_event_id'],
-      where: 'profile_id = ?',
-      whereArgs: [profile.id]);
-  for (final m in mappings) {
-    await db.insert(
-      'sync_created_events',
-      {
-        'calendar_id': m['target_calendar_id'],
-        'event_id': m['target_event_id'],
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+      final calendarService = CalendarService();
+      for (final m in mappings) {
+        await calendarService.deleteEvent(m['target_event_id'] as String);
+      }
+    } catch (_) {}
+
+    await dbFile.delete();
+    final walFile = File(join(dbPath, 'calendar_sync.db-wal'));
+    if (await walFile.exists()) await walFile.delete();
+    final shmFile = File(join(dbPath, 'calendar_sync.db-shm'));
+    if (await shmFile.exists()) await shmFile.delete();
   }
 
   await prefs.remove('source_calendar_id');
