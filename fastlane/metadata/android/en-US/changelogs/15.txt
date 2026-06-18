@@ -1,0 +1,1 @@
+- fix: handle recurring events in sync engine (#23)
