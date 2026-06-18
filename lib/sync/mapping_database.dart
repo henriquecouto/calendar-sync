@@ -10,6 +10,7 @@ class MappingDatabase {
   static const _columnTargetCalendarId = 'target_calendar_id';
   static const _columnTargetEventId = 'target_event_id';
   static const _columnSyncedAt = 'synced_at';
+  static const _columnCanonicalTime = 'canonical_time';
 
   static const _statusTable = 'sync_status';
   static const _statusId = 'id';
@@ -55,6 +56,7 @@ class MappingDatabase {
     required String targetCalendarId,
     required String targetEventId,
     required String syncedAt,
+    String? canonicalTime,
   }) async {
     final db = await database;
     await db.insert(
@@ -66,6 +68,7 @@ class MappingDatabase {
         _columnTargetCalendarId: targetCalendarId,
         _columnTargetEventId: targetEventId,
         _columnSyncedAt: syncedAt,
+        if (canonicalTime != null) _columnCanonicalTime: canonicalTime,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );

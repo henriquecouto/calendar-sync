@@ -45,7 +45,7 @@ The system SHALL create a target event using the user-configured sync name (not 
 - **THEN** the target event is created without recurrence fields
 
 ### Requirement: Record sync mappings
-After successfully creating a target event, the system SHALL insert a row into the mapping table recording (profile_id, source_calendar_id, source_event_id, target_calendar_id, target_event_id, synced_at). When a source event is deleted, the system SHALL remove the corresponding mapping row after deleting the target event.
+After successfully creating a target event, the system SHALL insert a row into the mapping table recording (profile_id, source_calendar_id, source_event_id, target_calendar_id, target_event_id, synced_at). If the source event is recurring, the system SHALL also store the `HH:mm` of the source's `startDate` as `canonical_time`.
 
 #### Scenario: Mapping recorded after sync
 - **WHEN** a source event is synced for profile "abc-123" and a target event is created with ID "TGT-456"
@@ -156,7 +156,7 @@ The system SHALL detect changes in all-day events using the same `millisecondsSi
 The sync engine SHALL NOT use `_localMidnight` or `_projectEnd` helpers. All-day event dates SHALL pass through from source to target without modification.
 
 ### Requirement: Skip recurring event instances
-When a source event is an instance of a recurring event (`eventId != instanceId`), the system SHALL fetch the base recurring event by `eventId` once per sync cycle and classify it instead of the instance (using the instance's start/end times but the base's recurrence rule). If the base event is already mapped, the classification detects time or title changes for updates. The instance itself is never directly classified as CREATE or UPDATE.
+When a source event is an instance of a recurring event (`eventId != instanceId`), the system SHALL fetch the base recurring event by `eventId` once per sync cycle and classify it instead of the instance (using the instance's start/end times but the base's recurrence rule). When comparing the merged event against an already-synced target, the system SHALL compare only the time-of-day (`HH:mm`) of `startDate` against the stored `canonical_time` in the mapping, ignoring the date component. Title changes and recurrence rule changes are still detected as before.
 
 #### Scenario: Instance of already-synced recurring event is skipped but base is checked
 - **WHEN** a recurring base event "100" is already mapped
@@ -169,15 +169,30 @@ When a source event is an instance of a recurring event (`eventId != instanceId`
 - **AND** an instance appears with `eventId: "100"` and `instanceId: "100@timestamp"`
 - **THEN** the base event "100" is fetched and classified as toCreate using the instance's start/end times and the base's recurrence rule
 
-#### Scenario: Changed recurring event detected via instance
-- **WHEN** a recurring event "100" is already synced with start=10:00 end=11:00
-- **AND** the user changes it to start=14:00 end=15:00
-- **AND** instances appear in the next sync cycle
-- **THEN** the base event is fetched, time change is detected, and the target is updated
+#### Scenario: Recurring event unchanged across cycles is skipped
+- **WHEN** a recurring event "100" is already synced with canonical_time "10:00"
+- **AND** in a later cycle the earliest instance has start=2026-06-19 10:00
+- **THEN** HH:mm "10:00" matches canonical_time "10:00" → timeChanged is false → event is skipped
+
+#### Scenario: User changes recurring event time detected
+- **WHEN** a recurring event "100" is already synced with canonical_time "10:00"
+- **AND** the user changes the recurring event start time to 14:00
+- **THEN** the next cycle's earliest instance has HH:mm "14:00" → differs from canonical_time "10:00" → timeChanged is true → UPDATE
 
 #### Scenario: Non-recurring event is classified normally
 - **WHEN** a source event has `eventId == instanceId`
 - **THEN** the system classifies it normally using existing mapping checks
+
+### Requirement: Database schema includes canonical_time
+The `sync_mappings` table SHALL include a nullable `canonical_time TEXT` column. This column is set when a target event is created for a recurring source and used for time-of-day comparison during subsequent syncs.
+
+#### Scenario: canonical_time stored for recurring events
+- **WHEN** a target is created for a recurring source event with start=10:00
+- **THEN** the mapping row stores canonical_time="10:00"
+
+#### Scenario: canonical_time is null for non-recurring events
+- **WHEN** a target is created for a non-recurring source event
+- **THEN** the mapping row has canonical_time=null
 
 ### Requirement: CalendarService supports recurrence parameter
 The `CalendarService.createEvent()` method SHALL accept an optional `RecurrenceRule? recurrenceRule` parameter. When provided, it SHALL be passed to the `device_calendar_plus` plugin's `createEvent` call.
