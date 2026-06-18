@@ -454,6 +454,7 @@ void main() {
         targetCalendarId: targetCalId,
         targetEventId: 'new-id-1',
         syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
       )).thenAnswer((_) async {});
       when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-id-1'))
           .thenAnswer((_) async {});
@@ -525,6 +526,7 @@ void main() {
         sourceCalendarId: sourceCalId, sourceEventId: 'src-1',
         targetCalendarId: targetCalId, targetEventId: 'new-id-2',
         syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
       )).thenAnswer((_) async {});
       when(() => mappingDb.deleteCreatedEvent(targetCalId, 'tgt-1'))
           .thenAnswer((_) async {});
@@ -745,6 +747,7 @@ void main() {
         targetCalendarId: targetCalId,
         targetEventId: 'new-id',
         syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
       )).thenAnswer((_) async {});
       when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-id'))
           .thenAnswer((_) async {});
@@ -825,6 +828,7 @@ void main() {
         sourceCalendarId: sourceCalId, sourceEventId: 'src-1',
         targetCalendarId: targetCalId, targetEventId: 'new-id',
         syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
       )).thenAnswer((_) async {});
       when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-id'))
           .thenAnswer((_) async {});
@@ -895,6 +899,7 @@ void main() {
         targetCalendarId: targetCalId,
         targetEventId: 'tgt-A',
         syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
       )).thenAnswer((_) async {});
       when(() => mappingDb.insertCreatedEvent(targetCalId, 'tgt-A'))
           .thenAnswer((_) async {});
@@ -913,6 +918,7 @@ void main() {
         targetCalendarId: targetCalId,
         targetEventId: 'tgt-A',
         syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
       )).called(1);
 
       verifyNever(() => mappingDb.insertMapping(
@@ -922,6 +928,7 @@ void main() {
         targetCalendarId: targetCalId,
         targetEventId: any(named: 'targetEventId'),
         syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
       ));
     });
 
@@ -1009,6 +1016,7 @@ void main() {
         targetCalendarId: targetCalId,
         targetEventId: 'new-id-1',
         syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
       )).thenAnswer((_) async {});
       when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-id-1'))
           .thenAnswer((_) async {});
@@ -1081,6 +1089,7 @@ void main() {
         targetCalendarId: targetCalId,
         targetEventId: 'new-id-1',
         syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
       )).thenAnswer((_) async {});
       when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-id-1'))
           .thenAnswer((_) async {});

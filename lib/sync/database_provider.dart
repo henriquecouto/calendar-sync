@@ -25,7 +25,7 @@ class DatabaseProvider {
     final path = join(dbPath, name);
     final db = await openDatabase(
       path,
-      version: 4,
+      version: 5,
       singleInstance: false,
       onConfigure: (db) async {
         await db.rawQuery('PRAGMA journal_mode=WAL');
@@ -40,6 +40,7 @@ class DatabaseProvider {
             target_calendar_id TEXT NOT NULL,
             target_event_id TEXT NOT NULL,
             synced_at TEXT NOT NULL,
+            canonical_time TEXT,
             UNIQUE(profile_id, source_calendar_id, source_event_id)
           )
         ''');
@@ -128,6 +129,9 @@ class DatabaseProvider {
               UNIQUE(calendar_id, event_id)
             )
           ''');
+        }
+        if (oldVersion < 5) {
+          await db.execute('ALTER TABLE sync_mappings ADD COLUMN canonical_time TEXT');
         }
       },
     );

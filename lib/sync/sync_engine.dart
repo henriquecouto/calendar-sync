@@ -306,11 +306,20 @@ class SyncEngine {
           return;
         }
 
-        final timeChanged =
-            event.startDate.millisecondsSinceEpoch !=
-                    targetEvent.startDate.millisecondsSinceEpoch ||
-                event.endDate.millisecondsSinceEpoch !=
-                    targetEvent.endDate.millisecondsSinceEpoch;
+        final isRecurring = event.isRecurring && event.recurrenceRule != null;
+        final canonicalTime = mapping['canonical_time'] as String?;
+        bool timeChanged;
+        if (isRecurring && canonicalTime != null) {
+          final currentTime =
+              '${event.startDate.hour.toString().padLeft(2, '0')}:${event.startDate.minute.toString().padLeft(2, '0')}';
+          timeChanged = currentTime != canonicalTime;
+        } else {
+          timeChanged =
+              event.startDate.millisecondsSinceEpoch !=
+                      targetEvent.startDate.millisecondsSinceEpoch ||
+                  event.endDate.millisecondsSinceEpoch !=
+                      targetEvent.endDate.millisecondsSinceEpoch;
+        }
         final titleChanged = event.title != targetEvent.description;
 
         if (!timeChanged && !titleChanged) {
@@ -389,6 +398,9 @@ class SyncEngine {
           continue;
         }
 
+        final canonicalTime = hasRecurrence
+            ? '${event.startDate.hour.toString().padLeft(2, '0')}:${event.startDate.minute.toString().padLeft(2, '0')}'
+            : null;
         await _mappingDb.insertMapping(
           profileId: profileId,
           sourceCalendarId: sourceCalendarId,
@@ -396,6 +408,7 @@ class SyncEngine {
           targetCalendarId: targetCalendarId,
           targetEventId: targetEventId,
           syncedAt: DateTime.now().toIso8601String(),
+          canonicalTime: canonicalTime,
         );
 
         await _mappingDb.insertCreatedEvent(
@@ -438,6 +451,9 @@ class SyncEngine {
         await _calendarService.deleteEvent(targetEventId);
         await _mappingDb.deleteCreatedEvent(targetCalId, targetEventId);
 
+        final canonicalTime = hasRecurrence
+            ? '${event.startDate.hour.toString().padLeft(2, '0')}:${event.startDate.minute.toString().padLeft(2, '0')}'
+            : null;
         await _mappingDb.insertMapping(
           profileId: profileId,
           sourceCalendarId: sourceCalendarId,
@@ -445,6 +461,7 @@ class SyncEngine {
           targetCalendarId: targetCalId,
           targetEventId: newTargetEventId,
           syncedAt: DateTime.now().toIso8601String(),
+          canonicalTime: canonicalTime,
         );
 
         await _mappingDb.insertCreatedEvent(
