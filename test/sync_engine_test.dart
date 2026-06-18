@@ -790,7 +790,7 @@ void main() {
       expect(plan.toCreate, hasLength(1));
     });
 
-    test('update detection correctly handles marked description via startsWith', () async {
+    test('update detection correctly handles marked description via contains', () async {
       final start = DateTime.utc(2026, 6, 23, 14, 0);
       final end = DateTime.utc(2026, 6, 23, 15, 0);
       final srcEvent = Event(
@@ -875,6 +875,61 @@ void main() {
       );
 
       expect(plan.toCreate, isEmpty);
+      expect(plan.toSkip.any((e) => e.eventId == 'src-1'), isTrue);
+    });
+
+    test('HTML-wrapped description is recognized as unchanged via contains', () async {
+      final start = DateTime.utc(2026, 6, 23, 14, 0);
+      final end = DateTime.utc(2026, 6, 23, 15, 0);
+      final srcEvent = Event(
+        eventId: 'src-1',
+        instanceId: 'src-1',
+        calendarId: sourceCalId,
+        title: 'Doctor Appointment',
+        startDate: start,
+        endDate: end,
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
+      );
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId)).thenAnswer(
+        (_) async => [{
+          'id': 1, 'source_event_id': 'src-1',
+          'target_event_id': 'tgt-1', 'target_calendar_id': targetCalId,
+        }],
+      );
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-1'))
+          .thenAnswer((_) async => true);
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
+        (_) async => Event(
+          eventId: 'tgt-1',
+          instanceId: 'tgt-1',
+          calendarId: targetCalId,
+          title: 'Busy',
+          description: '<html><body>Doctor Appointment<br>---<br>🔃 Automatically created by CalSync</body></html>',
+          startDate: start,
+          endDate: end,
+          isAllDay: false,
+          availability: EventAvailability.busy,
+          status: EventStatus.none,
+          isRecurring: false,
+        ),
+      );
+
+      final plan = await engine.runDryRun(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toUpdate, isEmpty);
       expect(plan.toSkip.any((e) => e.eventId == 'src-1'), isTrue);
     });
 
