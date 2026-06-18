@@ -1,0 +1,2 @@
+- feat: multiple sync profiles (#21)
+- chore: [skip ci] update fastlane images
