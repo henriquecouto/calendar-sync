@@ -55,11 +55,13 @@ class SyncEngine {
   SyncEngine(this._calendarService, this._mappingDb);
 
   Future<SyncResult> runSync({
+    required String profileId,
     required String sourceCalendarId,
     required String targetCalendarId,
     required String syncEventName,
   }) async {
     final plan = await _classify(
+      profileId: profileId,
       sourceCalendarId: sourceCalendarId,
       targetCalendarId: targetCalendarId,
       syncEventName: syncEventName,
@@ -77,6 +79,7 @@ class SyncEngine {
 
     return _execute(
       plan: plan,
+      profileId: profileId,
       sourceCalendarId: sourceCalendarId,
       targetCalendarId: targetCalendarId,
       syncEventName: syncEventName,
@@ -84,11 +87,13 @@ class SyncEngine {
   }
 
   Future<SyncPlan> runDryRun({
+    required String profileId,
     required String sourceCalendarId,
     required String targetCalendarId,
     required String syncEventName,
   }) async {
     return _classify(
+      profileId: profileId,
       sourceCalendarId: sourceCalendarId,
       targetCalendarId: targetCalendarId,
       syncEventName: syncEventName,
@@ -96,6 +101,7 @@ class SyncEngine {
   }
 
   Future<void> _processOrphanMappings({
+    required String profileId,
     required Set<String> sourceEventIds,
     required String sourceCalendarId,
     required String targetCalendarId,
@@ -117,6 +123,10 @@ class SyncEngine {
           if (targetEvent == null) {
             final mappingId = mapping['id'] as int;
             await _mappingDb.deleteMapping(mappingId);
+            await _mappingDb.deleteCreatedEvent(
+              mapping['target_calendar_id'] as String,
+              targetEventId,
+            );
             continue;
           }
 
@@ -142,6 +152,7 @@ class SyncEngine {
   }
 
   Future<SyncPlan> _classify({
+    required String profileId,
     required String sourceCalendarId,
     required String targetCalendarId,
     required String syncEventName,
@@ -154,13 +165,15 @@ class SyncEngine {
 
     final sourceEvents = await _calendarService.listEvents(sourceCalendarId);
 
-    final sourceEventIds = sourceEvents.map((e) => e.eventId).toSet();
-
     final mappings = await _mappingDb.listMappingsForCalendar(
+      profileId,
       sourceCalendarId,
     );
 
+    final sourceEventIds = sourceEvents.map((e) => e.eventId).toSet();
+
     await _processOrphanMappings(
+      profileId: profileId,
       sourceEventIds: sourceEventIds,
       sourceCalendarId: sourceCalendarId,
       targetCalendarId: targetCalendarId,
@@ -174,7 +187,17 @@ class SyncEngine {
       final eventId = event.eventId;
 
       try {
+        final createdBySync = await _mappingDb.isEventCreatedBySync(
+          sourceCalendarId,
+          eventId,
+        );
+        if (createdBySync) {
+          toSkip.add(event);
+          continue;
+        }
+
         final alreadySynced = await _mappingDb.isEventSynced(
+          profileId,
           sourceCalendarId,
           eventId,
         );
@@ -237,6 +260,7 @@ class SyncEngine {
 
   Future<SyncResult> _execute({
     required SyncPlan plan,
+    required String profileId,
     required String sourceCalendarId,
     required String targetCalendarId,
     required String syncEventName,
@@ -251,10 +275,12 @@ class SyncEngine {
       final mappingId = entry['id'] as int;
       final sourceEventId = entry['source_event_id'] as String;
       final targetEventId = entry['target_event_id'] as String;
+      final targetCalId = entry['target_calendar_id'] as String;
 
       try {
         await _calendarService.deleteEvent(targetEventId);
         await _mappingDb.deleteMapping(mappingId);
+        await _mappingDb.deleteCreatedEvent(targetCalId, targetEventId);
         deleted.add(sourceEventId);
       } catch (e) {
         errors.add('$sourceEventId: delete failed: $e');
@@ -281,11 +307,17 @@ class SyncEngine {
         }
 
         await _mappingDb.insertMapping(
+          profileId: profileId,
           sourceCalendarId: sourceCalendarId,
           sourceEventId: eventId,
           targetCalendarId: targetCalendarId,
           targetEventId: targetEventId,
           syncedAt: DateTime.now().toIso8601String(),
+        );
+
+        await _mappingDb.insertCreatedEvent(
+          targetCalendarId,
+          targetEventId,
         );
 
         synced.add(eventId);
@@ -299,10 +331,11 @@ class SyncEngine {
       final eventId = event.eventId;
       final mapping = entry.mapping;
       final targetEventId = mapping['target_event_id'] as String;
+      final targetCalId = mapping['target_calendar_id'] as String;
 
       try {
         final newTargetEventId = await _calendarService.createEvent(
-          targetCalendarId,
+          targetCalId,
           syncEventName,
           event.startDate,
           event.endDate,
@@ -316,13 +349,20 @@ class SyncEngine {
         }
 
         await _calendarService.deleteEvent(targetEventId);
+        await _mappingDb.deleteCreatedEvent(targetCalId, targetEventId);
 
         await _mappingDb.insertMapping(
+          profileId: profileId,
           sourceCalendarId: sourceCalendarId,
           sourceEventId: eventId,
-          targetCalendarId: targetCalendarId,
+          targetCalendarId: targetCalId,
           targetEventId: newTargetEventId,
           syncedAt: DateTime.now().toIso8601String(),
+        );
+
+        await _mappingDb.insertCreatedEvent(
+          targetCalId,
+          newTargetEventId,
         );
 
         updated.add(eventId);

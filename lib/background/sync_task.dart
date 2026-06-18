@@ -1,60 +1,60 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
+import '../settings/profile_service.dart';
 import '../sync/mapping_database.dart';
 import '../sync/sync_engine.dart';
 import '../calendar/calendar_service.dart';
-import '../settings/settings_service.dart';
 import '../permissions/permission_service.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
     try {
-      final settings = SettingsService();
-      final syncEnabled = await settings.syncEnabled;
-      if (!syncEnabled) {
-        await _logStatus(0, 0, 0, 0, 0);
-        await _signalDone();
-        return true;
-      }
+      final profileService = ProfileService();
+      final profiles = await profileService.listEnabledProfiles();
 
-      final interval = await settings.syncIntervalMinutes;
-      if (interval == 0) {
-        await _logStatus(0, 0, 0, 0, 0);
-        await _signalDone();
-        return true;
-      }
-
-      final sourceId = await settings.sourceCalendarId;
-      final targetId = await settings.targetCalendarId;
-      final syncName = await settings.syncEventName;
-      if (sourceId == null || targetId == null || syncName.isEmpty) {
-        await _logStatus(0, 0, 0, 0, 0);
+      if (profiles.isEmpty) {
         await _signalDone();
         return true;
       }
 
       final permService = PermissionService();
       if (!await permService.areCalendarPermissionsGranted) {
-        await _logStatus(0, 0, 0, 0, 0);
         await _signalDone();
         return true;
       }
 
       final engine = SyncEngine(CalendarService(), MappingDatabase());
-      final result = await engine.runSync(
-        sourceCalendarId: sourceId,
-        targetCalendarId: targetId,
-        syncEventName: syncName,
-      );
 
-      await _logStatus(
-        result.synced.length,
-        result.deleted.length,
-        result.skipped.length,
-        result.updated.length,
-        result.errors.length,
-      );
+      for (final profile in profiles) {
+        final sourceId = profile.sourceCalendarId;
+        final targetId = profile.targetCalendarId;
+        final syncName = profile.eventName.trim();
+
+        if (sourceId == null || targetId == null || syncName.isEmpty || profile.intervalMinutes <= 0) {
+          continue;
+        }
+
+        try {
+          final result = await engine.runSync(
+            profileId: profile.id,
+            sourceCalendarId: sourceId,
+            targetCalendarId: targetId,
+            syncEventName: syncName,
+          );
+
+          await _logStatus(
+            profile.id,
+            result.synced.length,
+            result.deleted.length,
+            result.skipped.length,
+            result.updated.length,
+            result.errors.length,
+          );
+        } catch (_) {
+          await _logStatus(profile.id, 0, 0, 0, 0, 1);
+        }
+      }
 
       await _signalDone();
     } catch (_) {}
@@ -63,9 +63,10 @@ void callbackDispatcher() {
   });
 }
 
-Future<void> _logStatus(int synced, int deleted, int skipped, int updated, int errors) async {
+Future<void> _logStatus(String profileId, int synced, int deleted, int skipped, int updated, int errors) async {
   final db = MappingDatabase();
   await db.insertStatus(
+    profileId: profileId,
     timestamp: DateTime.now().toIso8601String(),
     synced: synced,
     deleted: deleted,

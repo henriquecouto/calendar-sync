@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../settings/settings_service.dart';
+import '../settings/profile_service.dart';
 import '../calendar/calendar_service.dart';
 import '../sync/mapping_database.dart';
 import '../sync/sync_engine.dart';
 import '../sync/sync_status_screen.dart';
 import '../sync/dry_run_screen.dart';
-import '../widgets/profile_card.dart';
+import '../background/sync_scheduler.dart';
 import '../widgets/empty_state.dart';
 import 'profile_config_screen.dart';
 
@@ -18,20 +18,12 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final _settings = SettingsService();
+  final _profileService = ProfileService();
   final _calendarService = CalendarService();
   final _mappingDb = MappingDatabase();
 
-  String? _sourceCalendarId;
-  String? _targetCalendarId;
-  String _eventName = '';
-  int _intervalMinutes = 60;
-  bool _syncEnabled = false;
-
-  String? _sourceCalendarName;
-  String? _targetCalendarName;
-  String? _lastSyncText;
-
+  List<SyncProfile> _profiles = [];
+  Map<String, String> _calendarNames = {};
   List<Map<String, Object?>> _recentHistory = [];
   bool _loading = true;
 
@@ -42,83 +34,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _load() async {
-    final sourceId = await _settings.sourceCalendarId;
-    final targetId = await _settings.targetCalendarId;
-    final eventName = await _settings.syncEventName;
-    final interval = await _settings.syncIntervalMinutes;
-    final syncEnabled = await _settings.syncEnabled;
-
-    String? sourceName;
-    String? targetName;
-    String? lastSyncText;
-
+    final profiles = await _profileService.listProfiles();
     final calendars = await _calendarService.listCalendars();
-    if (sourceId != null) {
-      sourceName = calendars
-          .where((c) => c.id == sourceId)
-          .map((c) => c.name.isNotEmpty ? c.name : (c.accountName ?? 'Unknown'))
-          .firstOrNull;
-    }
-    if (targetId != null) {
-      targetName = calendars
-          .where((c) => c.id == targetId)
-          .map((c) => c.name.isNotEmpty ? c.name : (c.accountName ?? 'Unknown'))
-          .firstOrNull;
+
+    final calendarNames = <String, String>{};
+    for (final cal in calendars) {
+      calendarNames[cal.id] =
+          cal.name.isNotEmpty ? cal.name : (cal.accountName ?? 'Unknown');
     }
 
     final history = await _mappingDb.getStatusHistory(limit: 3);
-    if (history.isNotEmpty) {
-      final last = history.first;
-      final ts = last['timestamp'] as String?;
-      if (ts != null) {
-        lastSyncText = _formatLastSync(ts);
-      }
-    }
 
     setState(() {
-      _sourceCalendarId = sourceId;
-      _targetCalendarId = targetId;
-      _eventName = eventName;
-      _intervalMinutes = interval;
-      _syncEnabled = syncEnabled;
-      _sourceCalendarName = sourceName;
-      _targetCalendarName = targetName;
-      _lastSyncText = lastSyncText;
+      _profiles = profiles;
+      _calendarNames = calendarNames;
       _recentHistory = history;
       _loading = false;
     });
   }
 
-  String _formatLastSync(String ts) {
-    final dt = DateTime.tryParse(ts);
-    if (dt == null) return ts;
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+  String? _getCalendarName(String? calendarId) {
+    if (calendarId == null) return null;
+    if (_calendarNames.containsKey(calendarId)) return _calendarNames[calendarId];
+    return null;
   }
 
-  bool get _hasProfile =>
-      _sourceCalendarId != null && _targetCalendarId != null;
+  bool _calendarExists(String? calendarId) {
+    if (calendarId == null) return false;
+    return _calendarNames.containsKey(calendarId);
+  }
 
-  Future<void> _syncAll() async {
-    if (!_hasProfile || !_syncEnabled) return;
+  Future<void> _syncProfile(SyncProfile profile) async {
+    if (!profile.enabled) return;
+    final sourceId = profile.sourceCalendarId;
+    final targetId = profile.targetCalendarId;
+    final syncName = profile.eventName.trim();
 
-    final syncName = _eventName.trim();
-    if (syncName.isEmpty) return;
+    if (sourceId == null || targetId == null || syncName.isEmpty) return;
 
-    setState(() => _lastSyncText = 'Syncing...');
+    if (!_calendarExists(sourceId) || !_calendarExists(targetId)) return;
 
     final engine = SyncEngine(_calendarService, _mappingDb);
     final result = await engine.runSync(
-      sourceCalendarId: _sourceCalendarId!,
-      targetCalendarId: _targetCalendarId!,
+      profileId: profile.id,
+      sourceCalendarId: sourceId,
+      targetCalendarId: targetId,
       syncEventName: syncName,
     );
 
     await _mappingDb.insertStatus(
+      profileId: profile.id,
       timestamp: DateTime.now().toIso8601String(),
       synced: result.synced.length,
       deleted: result.deleted.length,
@@ -130,14 +95,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _load();
   }
 
-  Future<void> _navigateToConfig() async {
-    await Navigator.push(
+  Future<void> _syncAll() async {
+    for (final profile in _profiles) {
+      if (profile.enabled) {
+        await _syncProfile(profile);
+      }
+    }
+  }
+
+  Future<void> _toggleEnabled(SyncProfile profile, bool enabled) async {
+    await _profileService.updateProfile(profile.copyWith(enabled: enabled));
+    await SyncScheduler.updatePeriodicTask();
+    _load();
+  }
+
+  Future<void> _navigateToConfig({String? profileId}) async {
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => const ProfileConfigScreen(),
+        builder: (_) => ProfileConfigScreen(profileId: profileId),
       ),
     );
-    _load();
+    if (result == true) _load();
   }
 
   String _formatHistoryCounts(Map<String, Object?> entry) {
@@ -180,36 +159,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: const Text('CalSync'),
         centerTitle: true,
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _navigateToConfig(),
+        tooltip: 'Add profile',
+        child: const Icon(Icons.add),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (_hasProfile)
-            ProfileCard(
-              sourceCalendarName: _sourceCalendarName,
-              targetCalendarName: _targetCalendarName,
-              eventName: _eventName,
-              intervalMinutes: _intervalMinutes,
-              isEnabled: _syncEnabled,
-              lastSyncText: _lastSyncText,
-              onSync: _syncAll,
-              onConfigure: _navigateToConfig,
-            )
-          else
-            EmptyState(
-              icon: Icons.calendar_month,
-              title: 'No sync profiles yet',
-              subtitle:
-                  'Set up a profile to start syncing\nevents between calendars',
-              action: FilledButton.icon(
-                onPressed: _navigateToConfig,
-                icon: const Icon(Icons.add),
-                label: const Text('Create Profile'),
-              ),
-            ),
-          const SizedBox(height: 16),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -225,7 +185,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: _hasProfile ? _syncAll : null,
+                          onPressed:
+                              _profiles.isNotEmpty ? _syncAll : null,
                           icon: const Icon(Icons.sync),
                           label: const Text('Sync All'),
                         ),
@@ -233,7 +194,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: FilledButton.tonalIcon(
-                          onPressed: _hasProfile
+                          onPressed: _profiles.isNotEmpty
                               ? () {
                                   Navigator.push(
                                     context,
@@ -257,7 +218,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 16),
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -315,6 +276,92 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ],
+          const SizedBox(height: 16),
+          if (_profiles.isEmpty)
+            EmptyState(
+              icon: Icons.calendar_month,
+              title: 'No sync profiles yet',
+              subtitle:
+                  'Set up a profile to start syncing\nevents between calendars',
+              action: FilledButton.icon(
+                onPressed: () => _navigateToConfig(),
+                icon: const Icon(Icons.add),
+                label: const Text('Create Profile'),
+              ),
+            )
+          else
+            Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Text(
+                      'Profiles',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  ..._profiles.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final profile = entry.value;
+                    final sourceName = _getCalendarName(profile.sourceCalendarId);
+                    final targetName = _getCalendarName(profile.targetCalendarId);
+                    final hasMissing =
+                        (profile.sourceCalendarId != null && sourceName == null) ||
+                            (profile.targetCalendarId != null && targetName == null);
+                    final hasPair = profile.sourceCalendarId != null && profile.targetCalendarId != null;
+                    final isLast = index == _profiles.length - 1;
+
+                    return Column(
+                      children: [
+                        ListTile(
+                          title: Text(
+                            profile.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: hasPair
+                              ? Text('$sourceName → $targetName')
+                              : Text(hasMissing ? 'Calendar not found' : 'Not configured',
+                                  style: const TextStyle(color: Colors.orange)),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (hasMissing)
+                                const Icon(Icons.warning_amber_rounded,
+                                    size: 20, color: Colors.orange),
+                              if (profile.enabled)
+                                IconButton(
+                                  icon: Icon(Icons.sync,
+                                      color: Theme.of(context).colorScheme.primary),
+                                  tooltip: 'Sync now',
+                                  onPressed: () => _syncProfile(profile),
+                                  style: IconButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: const Size(36, 36),
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                ),
+                              Switch(
+                                value: profile.enabled,
+                                onChanged: (val) => _toggleEnabled(profile, val),
+                              ),
+                            ],
+                          ),
+                          onTap: () => _navigateToConfig(profileId: profile.id),
+                        ),
+                        if (!isLast)
+                          Divider(height: 1, indent: 16, endIndent: 16,
+                              color: Theme.of(context).colorScheme.outlineVariant),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+            ),
+          const SizedBox(height: 96),
         ],
       ),
     );
