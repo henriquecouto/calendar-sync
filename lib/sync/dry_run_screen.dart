@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../calendar/calendar_service.dart';
-import '../settings/settings_service.dart';
+import '../settings/profile_service.dart';
 import '../widgets/sync_plan_card.dart';
 import '../widgets/section_header.dart';
 import '../widgets/empty_state.dart';
@@ -9,33 +9,53 @@ import 'mapping_database.dart';
 import 'sync_engine.dart';
 
 class DryRunScreen extends StatefulWidget {
-  const DryRunScreen({super.key});
+  final String? profileId;
+
+  const DryRunScreen({super.key, this.profileId});
 
   @override
   State<DryRunScreen> createState() => _DryRunScreenState();
 }
 
 class _DryRunScreenState extends State<DryRunScreen> {
-  final _settings = SettingsService();
   final _calendarService = CalendarService();
   final _mappingDb = MappingDatabase();
+  final _profileService = ProfileService();
 
+  List<SyncProfile> _profiles = [];
+  String? _selectedProfileId;
   SyncPlan? _plan;
   bool _loading = false;
   String? _timestamp;
   String? _error;
 
-  Future<void> _runDryRun() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _plan = null;
-      _timestamp = null;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _selectedProfileId = widget.profileId;
+    _loadProfiles();
+  }
 
-    final sourceId = await _settings.sourceCalendarId;
-    final targetId = await _settings.targetCalendarId;
-    final syncName = await _settings.syncEventName;
+  Future<void> _loadProfiles() async {
+    final profiles = await _profileService.listProfiles();
+    setState(() => _profiles = profiles);
+  }
+
+  Future<void> _runDryRun() async {
+    if (_selectedProfileId == null) {
+      setState(() => _error = 'Select a profile first.');
+      return;
+    }
+
+    final profile = await _profileService.getProfile(_selectedProfileId!);
+    if (profile == null) {
+      setState(() => _error = 'Profile not found.');
+      return;
+    }
+
+    final sourceId = profile.sourceCalendarId;
+    final targetId = profile.targetCalendarId;
+    final syncName = profile.eventName;
 
     if (sourceId == null || targetId == null) {
       setState(() {
@@ -45,8 +65,16 @@ class _DryRunScreenState extends State<DryRunScreen> {
       return;
     }
 
+    setState(() {
+      _loading = true;
+      _error = null;
+      _plan = null;
+      _timestamp = null;
+    });
+
     final engine = SyncEngine(_calendarService, _mappingDb);
     final plan = await engine.runDryRun(
+      profileId: profile.id,
       sourceCalendarId: sourceId,
       targetCalendarId: targetId,
       syncEventName: syncName,
@@ -82,14 +110,35 @@ class _DryRunScreenState extends State<DryRunScreen> {
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? EmptyState(
-                  icon: Icons.info_outline,
-                  title: _error!,
-                )
-              : _buildResults(colorScheme),
+      body: Column(
+        children: [
+          if (widget.profileId == null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: DropdownMenu<String>(
+                initialSelection: _selectedProfileId,
+                label: const Text('Select profile'),
+                expandedInsets: EdgeInsets.zero,
+                dropdownMenuEntries: _profiles.map((p) {
+                  return DropdownMenuEntry(value: p.id, label: p.name);
+                }).toList(),
+                onSelected: (val) {
+                  setState(() => _selectedProfileId = val);
+                },
+              ),
+            ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? EmptyState(
+                        icon: Icons.info_outline,
+                        title: _error!,
+                      )
+                    : _buildResults(colorScheme),
+          ),
+        ],
+      ),
     );
   }
 

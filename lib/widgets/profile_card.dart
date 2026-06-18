@@ -1,38 +1,42 @@
 import 'package:flutter/material.dart';
 
+import '../settings/profile_service.dart';
+
 class ProfileCard extends StatelessWidget {
+  final SyncProfile profile;
   final String? sourceCalendarName;
   final String? targetCalendarName;
-  final String eventName;
-  final int intervalMinutes;
-  final bool isEnabled;
   final String? lastSyncText;
+  final bool hasMissingCalendar;
   final VoidCallback? onSync;
   final VoidCallback? onConfigure;
+  final ValueChanged<bool>? onToggleEnabled;
 
   const ProfileCard({
     super.key,
+    required this.profile,
     this.sourceCalendarName,
     this.targetCalendarName,
-    required this.eventName,
-    required this.intervalMinutes,
-    required this.isEnabled,
     this.lastSyncText,
+    this.hasMissingCalendar = false,
     this.onSync,
     this.onConfigure,
+    this.onToggleEnabled,
   });
 
   String get _intervalLabel {
-    if (intervalMinutes <= 0) return 'Manual only';
-    if (intervalMinutes < 60) return 'Every ${intervalMinutes}m';
-    if (intervalMinutes == 60) return 'Every 1h';
-    return 'Every ${intervalMinutes ~/ 60}h';
+    final interval = profile.intervalMinutes;
+    if (interval <= 0) return 'Manual only';
+    if (interval < 60) return 'Every ${interval}m';
+    if (interval == 60) return 'Every 1h';
+    return 'Every ${interval ~/ 60}h';
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final hasProfile = sourceCalendarName != null && targetCalendarName != null;
+    final hasProfile =
+        profile.sourceCalendarId != null && profile.targetCalendarId != null;
 
     return Card(
       child: Padding(
@@ -42,24 +46,25 @@ class ProfileCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isEnabled ? colorScheme.primary : colorScheme.outline,
+                Expanded(
+                  child: Text(
+                    profile.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: colorScheme.onSurface,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  isEnabled ? 'Active' : 'Paused',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: isEnabled ? colorScheme.primary : colorScheme.outline,
-                  ),
+                if (hasMissingCalendar)
+                  Icon(Icons.warning_amber_rounded,
+                      size: 20, color: Colors.orange),
+                const SizedBox(width: 4),
+                Switch(
+                  value: profile.enabled,
+                  onChanged: onToggleEnabled,
                 ),
-                const Spacer(),
-                if (onSync != null && isEnabled)
+                if (onSync != null && profile.enabled)
                   IconButton(
                     icon: Icon(Icons.sync, color: colorScheme.primary),
                     tooltip: 'Sync now',
@@ -72,47 +77,50 @@ class ProfileCard extends StatelessWidget {
                   ),
               ],
             ),
-            if (hasProfile) ...[
-              const SizedBox(height: 12),
+            if (hasProfile && sourceCalendarName != null && targetCalendarName != null) ...[
               Row(
                 children: [
                   Expanded(
                     child: Text(
                       sourceCalendarName!,
                       style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
+                        fontSize: 13,
+                        color: colorScheme.outline,
                       ),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(Icons.arrow_forward, size: 16, color: colorScheme.outline),
+                    child: Icon(Icons.arrow_forward,
+                        size: 14, color: colorScheme.outline),
                   ),
                   Expanded(
                     child: Text(
                       targetCalendarName!,
                       style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
+                        fontSize: 13,
+                        color: colorScheme.outline,
                       ),
                       textAlign: TextAlign.end,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                '"$eventName" · $_intervalLabel',
-                style: TextStyle(fontSize: 13, color: colorScheme.outline),
-              ),
             ] else ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 4),
               Text(
-                'Not configured',
-                style: TextStyle(color: colorScheme.outline),
+                hasMissingCalendar ? 'Calendar not found' : 'Not configured',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: hasMissingCalendar ? Colors.orange : colorScheme.outline,
+                ),
               ),
             ],
+            const SizedBox(height: 8),
+            Text(
+              '"${profile.eventName}" · $_intervalLabel',
+              style: TextStyle(fontSize: 13, color: colorScheme.outline),
+            ),
             if (lastSyncText != null) ...[
               const SizedBox(height: 4),
               Text(
