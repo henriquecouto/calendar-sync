@@ -1,0 +1,1 @@
+- feat: use contains instead of startsWith for title detection in HTML descriptions (#26)
