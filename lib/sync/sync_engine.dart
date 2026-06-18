@@ -165,6 +165,7 @@ class SyncEngine {
     final toSkip = <Event>[];
     final toDelete = <Map<String, Object?>>[];
     final errors = <String>[];
+    final processedIds = <String>{};
 
     final sourceEvents = await _calendarService.listEvents(sourceCalendarId);
 
@@ -188,70 +189,64 @@ class SyncEngine {
 
     for (final event in sourceEvents) {
       final eventId = event.eventId;
+      final isInstance = eventId != event.instanceId;
 
-      try {
-        final createdBySync = await _mappingDb.isEventCreatedBySync(
-          sourceCalendarId,
-          eventId,
-        );
-        if (createdBySync) {
-          toSkip.add(event);
+      if (isInstance) {
+        if (processedIds.contains(eventId)) {
           continue;
         }
-
-        final alreadySynced = await _mappingDb.isEventSynced(
-          profileId,
-          sourceCalendarId,
-          eventId,
-        );
-
-        if (alreadySynced) {
-          final mapping = mappings.cast<Map<String, Object?>>().firstWhere(
-            (m) => m['source_event_id'] == eventId,
+        final baseEvent = await _calendarService.getEvent(eventId);
+        if (baseEvent != null) {
+          processedIds.add(eventId);
+          final toUse = Event(
+            eventId: eventId,
+            instanceId: eventId,
+            calendarId: sourceCalendarId,
+            title: baseEvent.title,
+            description: baseEvent.description,
+            startDate: event.startDate,
+            endDate: event.endDate,
+            isAllDay: event.isAllDay,
+            isRecurring: true,
+            recurrenceRule: baseEvent.recurrenceRule,
+            availability: EventAvailability.busy,
+            status: EventStatus.none,
           );
-          final targetEventId = mapping['target_event_id'] as String;
-
-          final targetEvent = await _calendarService.getEvent(
-            targetEventId,
+          await _classifySingle(
+            event: toUse,
+            toCreate: toCreate,
+            toUpdate: toUpdate,
+            toSkip: toSkip,
+            errors: errors,
+            profileId: profileId,
+            sourceCalendarId: sourceCalendarId,
+            targetCalendarId: targetCalendarId,
+            syncEventName: syncEventName,
+            mappings: mappings,
           );
-
-          if (targetEvent == null) {
-            toSkip.add(event);
-            continue;
-          }
-
-          final timeChanged =
-              event.startDate.millisecondsSinceEpoch !=
-                      targetEvent.startDate.millisecondsSinceEpoch ||
-                  event.endDate.millisecondsSinceEpoch !=
-                      targetEvent.endDate.millisecondsSinceEpoch;
-          final titleChanged = event.title != targetEvent.description;
-
-          if (!timeChanged && !titleChanged) {
-            toSkip.add(event);
-            continue;
-          }
-
-          toUpdate.add(ToUpdateEntry(
-            sourceEvent: event,
-            mapping: Map<String, Object?>.from(mapping),
-        ));
-          continue;
         }
-
-        toCreate.add(ToCreateEntry(
-          sourceEvent: event,
-          projectedTitle: syncEventName,
-          projectedDescription: event.title,
-          projectedStart: event.startDate,
-          projectedEnd: event.endDate,
-          projectedAllDay: event.isAllDay,
-        ));
-      } catch (e) {
-        errors.add('$eventId: $e');
+        toSkip.add(event);
+        continue;
       }
-    }
 
+      if (processedIds.contains(eventId)) {
+        continue;
+      }
+      processedIds.add(eventId);
+      await _classifySingle(
+        event: event,
+        toCreate: toCreate,
+        toUpdate: toUpdate,
+        toSkip: toSkip,
+        errors: errors,
+        profileId: profileId,
+        sourceCalendarId: sourceCalendarId,
+        targetCalendarId: targetCalendarId,
+        syncEventName: syncEventName,
+        mappings: mappings,
+      );
+
+    }
     return SyncPlan(
       toCreate: toCreate,
       toUpdate: toUpdate,
@@ -259,6 +254,88 @@ class SyncEngine {
       toDelete: toDelete,
       errors: errors,
     );
+  }
+
+  Future<void> _classifySingle({
+    required Event event,
+    required List<ToCreateEntry> toCreate,
+    required List<ToUpdateEntry> toUpdate,
+    required List<Event> toSkip,
+    required List<String> errors,
+    required String profileId,
+    required String sourceCalendarId,
+    required String targetCalendarId,
+    required String syncEventName,
+    required List<Map<String, Object?>> mappings,
+  }) async {
+    final eventId = event.eventId;
+
+    try {
+      final createdBySync = await _mappingDb.isEventCreatedBySync(
+        sourceCalendarId,
+        eventId,
+      );
+      if (createdBySync) {
+        toSkip.add(event);
+        return;
+      }
+
+      final alreadySynced = await _mappingDb.isEventSynced(
+        profileId,
+        sourceCalendarId,
+        eventId,
+      );
+
+      if (alreadySynced) {
+        final mapping = mappings.cast<Map<String, Object?>>().firstWhere(
+          (m) => m['source_event_id'] == eventId,
+          orElse: () => <String, Object?>{},
+        );
+        if (mapping.isEmpty) {
+          toSkip.add(event);
+          return;
+        }
+        final targetEventId = mapping['target_event_id'] as String;
+
+        final targetEvent = await _calendarService.getEvent(
+          targetEventId,
+        );
+
+        if (targetEvent == null) {
+          toSkip.add(event);
+          return;
+        }
+
+        final timeChanged =
+            event.startDate.millisecondsSinceEpoch !=
+                    targetEvent.startDate.millisecondsSinceEpoch ||
+                event.endDate.millisecondsSinceEpoch !=
+                    targetEvent.endDate.millisecondsSinceEpoch;
+        final titleChanged = event.title != targetEvent.description;
+
+        if (!timeChanged && !titleChanged) {
+          toSkip.add(event);
+          return;
+        }
+
+        toUpdate.add(ToUpdateEntry(
+          sourceEvent: event,
+          mapping: Map<String, Object?>.from(mapping),
+        ));
+        return;
+      }
+
+      toCreate.add(ToCreateEntry(
+        sourceEvent: event,
+        projectedTitle: syncEventName,
+        projectedDescription: event.title,
+        projectedStart: event.startDate,
+        projectedEnd: event.endDate,
+        projectedAllDay: event.isAllDay,
+      ));
+    } catch (e) {
+      errors.add('$eventId: $e');
+    }
   }
 
   Future<SyncResult> _execute({
@@ -295,6 +372,7 @@ class SyncEngine {
       final eventId = event.eventId;
 
       try {
+        final hasRecurrence = event.isRecurring && event.recurrenceRule != null;
         final targetEventId = await _calendarService.createEvent(
           targetCalendarId,
           syncEventName,
@@ -302,6 +380,8 @@ class SyncEngine {
           entry.projectedEnd,
           description: event.title,
           isAllDay: entry.projectedAllDay,
+              recurrenceRule:
+                  hasRecurrence ? event.recurrenceRule : null,
         );
 
         if (targetEventId == null) {
@@ -337,6 +417,8 @@ class SyncEngine {
       final targetCalId = mapping['target_calendar_id'] as String;
 
       try {
+        final hasRecurrence = event.isRecurring &&
+            event.recurrenceRule != null;
         final newTargetEventId = await _calendarService.createEvent(
           targetCalId,
           syncEventName,
@@ -344,6 +426,8 @@ class SyncEngine {
           event.endDate,
           description: event.title,
           isAllDay: event.isAllDay,
+              recurrenceRule:
+                  hasRecurrence ? event.recurrenceRule : null,
         );
 
         if (newTargetEventId == null) {
