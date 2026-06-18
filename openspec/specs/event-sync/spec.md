@@ -30,19 +30,35 @@ The system SHALL query the local mapping table to determine whether a source eve
 - **THEN** the system skips the event without crashing
 
 ### Requirement: Create synced event with user-provided name
-The system SHALL create a target event using the user-configured sync name (not the original event title). The target event SHALL copy the source event's start time and end time. The target event's description SHALL be set to the original source event title. If the source event is recurring (`isRecurring == true`), the target event SHALL also be created as recurring, copying the source event's `recurrenceRule`.
+The system SHALL create a target event using the user-configured sync name (not the original event title). The target event SHALL copy the source event's start time and end time. The target event's description SHALL be set to the original source event title followed by a sync marker in the format:
 
-#### Scenario: Synced event uses custom name and preserves source title as description
+```
+<original title>
+---
+🔃 Automatically created by CalSync
+```
+
+If the source event is recurring (`isRecurring == true`), the target event SHALL also be created as recurring, copying the source event's `recurrenceRule`.
+
+#### Scenario: Synced event uses custom name and embeds sync marker
 - **WHEN** the user has configured "Busy" as the sync name and a source event titled "Doctor Appointment" appears
-- **THEN** the target event has the title "Busy", the same start/end times as the source event, and description "Doctor Appointment"
+- **THEN** the target event has the title "Busy", the same start/end times as the source event
+- **AND** the description is:
+  ```
+  Doctor Appointment
+  ---
+  🔃 Automatically created by CalSync
+  ```
 
 #### Scenario: Recurring source creates recurring target
 - **WHEN** the source event has `isRecurring: true`, `eventId: "100"`, `instanceId: "100"`, and `recurrenceRule: "FREQ=WEEKLY;BYDAY=MO"`
 - **THEN** the target event is created with the same recurrence rule
+- **AND** the description includes the sync marker
 
 #### Scenario: Non-recurring source creates non-recurring target
 - **WHEN** the source event has `isRecurring: false`
 - **THEN** the target event is created without recurrence fields
+- **AND** the description includes the sync marker
 
 ### Requirement: Record sync mappings
 After successfully creating a target event, the system SHALL insert a row into the mapping table recording (profile_id, source_calendar_id, source_event_id, target_calendar_id, target_event_id, synced_at). If the source event is recurring, the system SHALL also store the `HH:mm` of the source's `startDate` as `canonical_time`.
@@ -214,20 +230,33 @@ The sync engine SHALL accept a `profileId` parameter for all sync operations (`r
 - **THEN** all mapping lookups SHALL include `profileId: "abc-123"` in their WHERE clauses
 
 ### Requirement: Skip source events that were created by sync engine
-The system SHALL maintain a global `sync_created_events` table recording `(calendar_id, event_id)` for every target event created by any sync profile. Before classifying any source event as new, the system SHALL check this table. If the source event was created by the sync engine (any profile), the system SHALL skip it to prevent sync loops. When a target event is deleted (orphan processing, profile deletion, or update replacement), the corresponding row in `sync_created_events` SHALL be removed.
+The system SHALL check the description of every source event for the sync marker `"🔃 Automatically created by CalSync"` before classifying it. If the description contains the marker, the system SHALL skip the event to prevent sync loops. The system SHALL also maintain the `sync_created_events` table as a secondary check for cases where the description may be unavailable or truncated. When a target event is deleted (orphan processing, profile deletion, or update replacement), the corresponding row in `sync_created_events` SHALL be removed.
 
-#### Scenario: Event created by another profile is skipped
-- **WHEN** Profile A (Work→Personal) creates "Busy" in the Personal calendar as evt-100
-- **AND** `sync_created_events` contains `(Personal, evt-100)`
-- **AND** Profile B (Personal→Work) runs a sync cycle scanning the Personal calendar
-- **THEN** Profile B SHALL query `sync_created_events` for evt-100
-- **AND** finding the entry, Profile B SHALL skip evt-100 without creating a new event in Work
+The check order in `_classifySingle` SHALL be:
+1. Check description for sync marker → skip if present
+2. Check `sync_created_events` table → skip if present (defense-in-depth)
+3. Check mapping table → classify as create/update/skip
 
-#### Scenario: User-created event is NOT skipped
+#### Scenario: Event created by another profile is skipped via description marker
+- **WHEN** Profile A creates a target event with description containing "🔃 Automatically created by CalSync"
+- **AND** Outlook re-syncs the event, changing its `eventId` from "TGT-100" to "TGT-200"
+- **AND** Profile B lists the event in the source calendar with the new `eventId`
+- **THEN** Profile B checks the description, finds the marker, and skips it
+- **AND** no loop occurs
+
+#### Scenario: User-created event is NOT skipped (no marker)
 - **WHEN** the user manually creates "Reunião 10h" in the Work calendar as evt-001
-- **AND** `sync_created_events` does NOT contain `(Work, evt-001)`
-- **AND** a profile syncs from Work
-- **THEN** evt-001 SHALL be classified normally (create or skip based on mapping)
+- **AND** the description does not contain the sync marker
+- **THEN** the event SHALL be classified normally (create or skip based on mapping)
+
+#### Scenario: Event created by sync with intact eventId is still skipped via description
+- **WHEN** `sync_created_events` has `(Work, evt-100)` and the description also contains the marker
+- **THEN** the event is skipped by the description check (first priority)
+
+#### Scenario: Marker detection when description is null
+- **WHEN** a source event has `description: null`
+- **THEN** the system SHALL NOT crash on null description
+- **AND** SHALL fall through to the `sync_created_events` table check
 
 #### Scenario: Entry inserted on target event creation
 - **WHEN** the sync engine successfully creates a target event evt-200 in calendar "CAL-B"

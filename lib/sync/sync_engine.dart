@@ -4,6 +4,8 @@ import 'package:device_calendar_plus/device_calendar_plus.dart';
 import '../calendar/calendar_service.dart';
 import 'mapping_database.dart';
 
+const _syncMarker = '🔃 Automatically created by CalSync';
+
 class SyncPlan {
   final List<ToCreateEntry> toCreate;
   final List<ToUpdateEntry> toUpdate;
@@ -271,6 +273,12 @@ class SyncEngine {
     final eventId = event.eventId;
 
     try {
+      final description = event.description;
+      if (description != null && description.contains(_syncMarker)) {
+        toSkip.add(event);
+        return;
+      }
+
       final createdBySync = await _mappingDb.isEventCreatedBySync(
         sourceCalendarId,
         eventId,
@@ -320,7 +328,8 @@ class SyncEngine {
                   event.endDate.millisecondsSinceEpoch !=
                       targetEvent.endDate.millisecondsSinceEpoch;
         }
-        final titleChanged = event.title != targetEvent.description;
+        final titleChanged =
+            !(targetEvent.description?.startsWith(event.title) ?? false);
 
         if (!timeChanged && !titleChanged) {
           toSkip.add(event);
@@ -387,7 +396,7 @@ class SyncEngine {
           syncEventName,
           entry.projectedStart,
           entry.projectedEnd,
-          description: event.title,
+          description: '${event.title}\n---\n$_syncMarker',
           isAllDay: entry.projectedAllDay,
               recurrenceRule:
                   hasRecurrence ? event.recurrenceRule : null,
@@ -437,7 +446,7 @@ class SyncEngine {
           syncEventName,
           event.startDate,
           event.endDate,
-          description: event.title,
+          description: '${event.title}\n---\n$_syncMarker',
           isAllDay: event.isAllDay,
               recurrenceRule:
                   hasRecurrence ? event.recurrenceRule : null,
