@@ -1,7 +1,9 @@
+import 'package:flutter/services.dart';
 import 'package:device_calendar_plus/device_calendar_plus.dart';
 
 class CalendarService {
   final DeviceCalendar _plugin = DeviceCalendar.instance;
+  static const _channel = MethodChannel('dev.henriquecouto.calsync/calendar');
 
   Future<List<Calendar>> listCalendars() async {
     try {
@@ -56,12 +58,35 @@ class CalendarService {
     }
   }
 
-  Future<bool> deleteEvent(String eventId) async {
+  Future<CalendarDeleteResult> deleteEvent(String eventId) async {
+    try {
+      final numericId = int.tryParse(eventId);
+      if (numericId != null) {
+        final ok = await _channel.invokeMethod<bool>(
+          'softDeleteEvent',
+          {'eventId': numericId},
+        );
+        if (ok == true) {
+          return const CalendarDeleteResult(success: true, usedSoftDelete: true);
+        }
+      }
+    } catch (_) {}
+
     try {
       await _plugin.deleteEvent(eventId: eventId);
-      return true;
+      return const CalendarDeleteResult(success: true, usedSoftDelete: false);
     } on DeviceCalendarException {
-      return false;
+      return const CalendarDeleteResult(success: false, usedSoftDelete: false);
     }
   }
+}
+
+class CalendarDeleteResult {
+  final bool success;
+  final bool usedSoftDelete;
+
+  const CalendarDeleteResult({
+    required this.success,
+    required this.usedSoftDelete,
+  });
 }

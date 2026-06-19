@@ -140,15 +140,7 @@ class SyncEngine {
             continue;
           }
 
-          final sourceEvent = await _calendarService.getEvent(
-            sourceEventId,
-          );
-
-          if (sourceEvent != null) {
-            sourceEvents.add(sourceEvent);
-          } else {
-            toDelete.add(mapping);
-          }
+          toDelete.add(mapping);
         } catch (e) {
           errors.add('$sourceEventId: $e');
         }
@@ -376,7 +368,22 @@ class SyncEngine {
       final targetCalId = entry['target_calendar_id'] as String;
 
       try {
-        await _calendarService.deleteEvent(targetEventId);
+        final deleteResult = await _calendarService.deleteEvent(targetEventId);
+
+        if (!deleteResult.success) {
+          errors.add('$sourceEventId: deleteEvent failed');
+          continue;
+        }
+
+        if (!deleteResult.usedSoftDelete) {
+          await Future.delayed(const Duration(seconds: 5));
+          final stillExists = await _calendarService.getEvent(targetEventId);
+          if (stillExists != null) {
+            errors.add('$sourceEventId: target recreated after hard delete');
+            continue;
+          }
+        }
+
         await _mappingDb.deleteMapping(mappingId);
         await _mappingDb.deleteCreatedEvent(targetCalId, targetEventId);
         deleted.add(sourceEventId);
