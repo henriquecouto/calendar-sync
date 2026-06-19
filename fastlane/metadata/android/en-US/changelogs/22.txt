@@ -1,0 +1,1 @@
+- fix: soft-delete outlook events with sync-adapter context (#27)
