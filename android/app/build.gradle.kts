@@ -91,3 +91,31 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 }
+
+tasks.register("injectSoftDeletePlugin") {
+    doLast {
+        val registrantFile = file("src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java")
+        if (!registrantFile.exists()) return@doLast
+
+        var content = registrantFile.readText()
+
+        val injection = """
+    try {
+      flutterEngine.getPlugins().add(new dev.henriquecouto.calsync.SoftDeletePlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin cal_sync_soft_delete, dev.henriquecouto.calsync.SoftDeletePlugin", e);
+    }
+  """
+
+        if (!content.contains("SoftDeletePlugin")) {
+            content = content.replace("  }\n}", injection + "\n  }\n}")
+            registrantFile.writeText(content)
+        }
+    }
+}
+
+tasks.whenTaskAdded {
+    if (name.startsWith("compile") && name.endsWith("Kotlin")) {
+        finalizedBy("injectSoftDeletePlugin")
+    }
+}

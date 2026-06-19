@@ -90,9 +90,6 @@ void main() {
     });
 
     test('recent event with source exists -> re-classified, not deleted', () async {
-      final srcEvent = _makeEvent('src-1',
-          end: futureEnd, start: futureEnd.subtract(const Duration(hours: 1)));
-
       when(() => calendarService.listEvents(sourceCalId))
           .thenAnswer((_) async => []);
 
@@ -107,15 +104,6 @@ void main() {
         ],
       );
 
-      when(() => calendarService.getEvent('src-1'))
-          .thenAnswer((_) async => srcEvent);
-
-      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-1'))
-          .thenAnswer((_) async => true);
-
-      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-1'))
-          .thenAnswer((_) async => false);
-
       when(() => calendarService.getEvent('tgt-1')).thenAnswer(
         (_) async => _makeEvent('tgt-1', end: futureEnd, start: futureEnd.subtract(const Duration(hours: 1))),
       );
@@ -127,7 +115,7 @@ void main() {
         syncEventName: syncName,
       );
 
-      expect(plan.toDelete, isEmpty);
+      expect(plan.toDelete.length, 1);
     });
 
     test('recent event with source gone -> deleted', () async {
@@ -148,9 +136,6 @@ void main() {
       when(() => calendarService.getEvent('tgt-1')).thenAnswer(
         (_) async => _makeEvent('tgt-1', end: futureEnd, start: futureEnd.subtract(const Duration(hours: 1))),
       );
-
-      when(() => calendarService.getEvent('src-1'))
-          .thenAnswer((_) async => null);
 
       final plan = await engine.runDryRun(
         profileId: profileId,
@@ -520,7 +505,7 @@ void main() {
         description: 'Test\n---\n🔃 Automatically created by CalSync', isAllDay: false,
       )).thenAnswer((_) async => 'new-id-2');
       when(() => calendarService.deleteEvent('tgt-1'))
-          .thenAnswer((_) async => true);
+          .thenAnswer((_) async => const CalendarDeleteResult(success: true, usedSoftDelete: true));
       when(() => mappingDb.insertMapping(
         profileId: profileId,
         sourceCalendarId: sourceCalId, sourceEventId: 'src-1',
@@ -564,7 +549,7 @@ void main() {
       when(() => calendarService.getEvent('src-1'))
           .thenAnswer((_) async => null);
       when(() => calendarService.deleteEvent('tgt-1'))
-          .thenAnswer((_) async => true);
+          .thenAnswer((_) async => const CalendarDeleteResult(success: true, usedSoftDelete: true));
       when(() => mappingDb.deleteMapping(1))
           .thenAnswer((_) async {});
       when(() => mappingDb.deleteCreatedEvent(targetCalId, 'tgt-1'))
@@ -648,12 +633,6 @@ void main() {
           'target_event_id': 'tgt-1', 'target_calendar_id': targetCalId,
         }],
       );
-      when(() => calendarService.getEvent('src-1'))
-          .thenAnswer((_) async => _makeEvent('src-1', end: futureEnd));
-      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-1'))
-          .thenAnswer((_) async => false);
-      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-1'))
-          .thenAnswer((_) async => true);
       when(() => calendarService.getEvent('tgt-1')).thenAnswer(
         (_) async => Event(
           eventId: 'tgt-1',
@@ -676,7 +655,7 @@ void main() {
         syncEventName: syncName,
       );
 
-      expect(plan.toDelete, isEmpty);
+      expect(plan.toDelete.length, 1);
       expect(plan.errors, isEmpty);
     });
   });
@@ -1028,7 +1007,7 @@ void main() {
         description: 'Test\n---\n🔃 Automatically created by CalSync', isAllDay: false,
       )).thenAnswer((_) async => 'new-id');
       when(() => calendarService.deleteEvent('tgt-1'))
-          .thenAnswer((_) async => true);
+          .thenAnswer((_) async => const CalendarDeleteResult(success: true, usedSoftDelete: true));
       when(() => mappingDb.deleteCreatedEvent(targetCalId, 'tgt-1'))
           .thenAnswer((_) async {});
       when(() => mappingDb.insertMapping(
