@@ -60,33 +60,21 @@ class CalendarService {
 
   Future<CalendarDeleteResult> deleteEvent(String eventId) async {
     try {
-      final numericId = int.tryParse(eventId);
-      if (numericId != null) {
-        final ok = await _channel.invokeMethod<bool>(
-          'softDeleteEvent',
-          {'eventId': numericId},
-        );
-        if (ok == true) {
-          return const CalendarDeleteResult(success: true, usedSoftDelete: true);
-        }
-      }
-    } catch (_) {}
-
-    try {
-      await _plugin.deleteEvent(eventId: eventId);
-      return const CalendarDeleteResult(success: true, usedSoftDelete: false);
-    } on DeviceCalendarException {
-      return const CalendarDeleteResult(success: false, usedSoftDelete: false);
+      final ok = await _channel.invokeMethod<bool>(
+        'deleteEvent',
+        {'eventId': eventId},
+      );
+      return CalendarDeleteResult(success: ok == true);
+    } catch (_) {
+      return const CalendarDeleteResult(success: false);
     }
   }
 }
 
 class CalendarDeleteResult {
   final bool success;
-  final bool usedSoftDelete;
 
   const CalendarDeleteResult({
     required this.success,
-    required this.usedSoftDelete,
   });
 }

@@ -375,15 +375,6 @@ class SyncEngine {
           continue;
         }
 
-        if (!deleteResult.usedSoftDelete) {
-          await Future.delayed(const Duration(seconds: 5));
-          final stillExists = await _calendarService.getEvent(targetEventId);
-          if (stillExists != null) {
-            errors.add('$sourceEventId: target recreated after hard delete');
-            continue;
-          }
-        }
-
         await _mappingDb.deleteMapping(mappingId);
         await _mappingDb.deleteCreatedEvent(targetCalId, targetEventId);
         deleted.add(sourceEventId);
@@ -464,7 +455,11 @@ class SyncEngine {
           continue;
         }
 
-        await _calendarService.deleteEvent(targetEventId);
+        await _calendarService.deleteEvent(targetEventId).then((result) {
+          if (!result.success) {
+            errors.add('$eventId: failed to delete old target event');
+          }
+        });
         await _mappingDb.deleteCreatedEvent(targetCalId, targetEventId);
 
         final canonicalTime = hasRecurrence

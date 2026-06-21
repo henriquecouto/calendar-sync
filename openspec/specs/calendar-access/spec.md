@@ -55,7 +55,7 @@ The system SHALL create a new event in a specified calendar via `DeviceCalendar.
 - **THEN** the system still creates the new event and returns a unique event ID
 
 ### Requirement: Delete an event from a calendar
-The system SHALL delete an event via `DeviceCalendar.instance.deleteEvent(eventId:)`, using only the event ID (no calendar ID required).
+The system SHALL delete an event via the Android platform channel method `deleteEvent` on channel `dev.henriquecouto.calsync/calendar`, passing only `eventId`. The platform channel SHALL call `ContentResolver.delete()` on plain `Events.CONTENT_URI`. The Android Calendar Provider SHALL determine the deletion strategy automatically: `DELETED=1` for synced calendars (allowing sync adapters to propagate the deletion), physical row removal for local calendars. The method SHALL NOT use `device_calendar_plus`'s `deleteEvent()` as a fallback.
 
 #### Scenario: Event deleted successfully
 - **WHEN** the system deletes a synced event by its target event ID
