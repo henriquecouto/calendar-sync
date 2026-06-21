@@ -1,0 +1,2 @@
+- Update pubspec.yaml
+- fix: register SoftDeletePlugin in Flutter engine for release builds
