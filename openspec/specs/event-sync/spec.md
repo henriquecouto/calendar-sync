@@ -87,7 +87,7 @@ After successfully creating a target event, the system SHALL insert a row into t
 - **THEN** the mapping row is removed after the target event is deleted
 
 ### Requirement: Run full sync cycle
-The system SHALL execute a sync cycle for a given profile: list source events (from now to now+30d), query mapping table filtered by profile ID and source calendar, for each mapped source event absent from the fetch window check the target event's end time against a 7-day threshold (skip if older, confirm via source-by-ID if recent), create target events for unmapped source events, update target events for already-mapped source events whose fields changed, and record new mappings with the profile ID. Recurring event instances (`eventId != instanceId`) are fetched via base event ID and never directly classified; the base event is classified once per cycle instead.
+The system SHALL execute a sync cycle for a given profile: list source events (from now to now+30d), query mapping table filtered by profile ID and source calendar, for each mapped source event absent from the fetch window check the target event's end time against a 7-day threshold (skip if older, delete if recent), create target events for unmapped source events, update target events for already-mapped source events whose fields changed, and record new mappings with the profile ID. Recurring event instances (`eventId != instanceId`) are fetched via base event ID and never directly classified; the base event is classified once per cycle instead.
 
 #### Scenario: Full sync with new events
 - **WHEN** the source calendar has 3 events and none are in the mapping table
@@ -121,15 +121,11 @@ The system SHALL execute a sync cycle for a given profile: list source events (f
 
 #### Scenario: Old past event is ignored
 - **WHEN** a synced source event is absent from the fetch window AND its target event's end time is more than 7 days in the past
-- **THEN** the system does NOT delete the target event and does NOT fetch the source event
+- **THEN** the system does NOT delete the target event
 
-#### Scenario: Recent past event with source still exists
-- **WHEN** a synced source event is absent from the fetch window AND its target event's end time is within 7 days AND a direct ID fetch confirms the source still exists
-- **THEN** the system re-classifies the event (compares with target and updates if fields differ) rather than deleting
-
-#### Scenario: Recent past event with source confirmed deleted
-- **WHEN** a synced source event is absent from the fetch window AND its target event's end time is within 7 days AND a direct ID fetch confirms the source is gone
-- **THEN** the system deletes the target event and removes the mapping
+#### Scenario: Recent past event with source deleted
+- **WHEN** a synced source event is absent from the fetch window AND its target event's end time is within 7 days
+- **THEN** the system deletes the target event and removes the mapping without re-fetching the source event by ID
 
 #### Scenario: Orphan mapping with missing target event
 - **WHEN** a synced source event is absent from the fetch window AND the target event no longer exists in the target calendar
@@ -234,6 +230,38 @@ The sync engine SHALL accept a `profileId` parameter for all sync operations (`r
 #### Scenario: Dry run with profile ID
 - **WHEN** `runDryRun` is called with `profileId: "abc-123"`
 - **THEN** all mapping lookups SHALL include `profileId: "abc-123"` in their WHERE clauses
+
+### Requirement: Soft-delete target events for sync adapter propagation
+The system SHALL delete target events by setting `DELETED=1` and `DIRTY=1` on the Android Calendar Provider event row, using a sync-adapter context URI (`CALLER_IS_SYNCADAPTER=true`) so the Calendar Provider allows writing to the `DIRTY` field. After marking the event, the system SHALL call `ContentResolver.requestSync()` for all device accounts to trigger immediate sync adapter propagation. This ensures sync adapters (e.g., DAVdroid) detect the deletion and push it to the remote server.
+
+The soft-delete operation SHALL be implemented as a native FlutterPlugin (`SoftDeletePlugin`) registered in `GeneratedPluginRegistrant.java` via a Gradle build task, making it available in both foreground and background Flutter engines.
+
+#### Scenario: Target event soft-deleted on source deletion
+- **WHEN** a source event is deleted from the source calendar
+- **AND** the sync engine detects the orphaned mapping
+- **THEN** the target event row is updated with `DELETED=1` and `DIRTY=1` using sync-adapter context URI
+- **AND** `ContentResolver.requestSync()` is called for all accounts
+- **AND** the mapping is removed from the local database
+
+#### Scenario: Soft-delete works in background sync
+- **WHEN** the Workmanager periodic task triggers a sync
+- **AND** an orphaned mapping is detected requiring target deletion
+- **THEN** the SoftDeletePlugin is available via the background FlutterEngine's GeneratedPluginRegistrant
+- **AND** the soft-delete proceeds without falling back to hard-delete
+
+### Requirement: Hard-delete fallback with post-deletion verification
+If the soft-delete MethodChannel is unavailable, the system SHALL fall back to the `device_calendar_plus` plugin's hard-delete. After a hard-delete, the system SHALL wait 5 seconds and then call `getEvent` on the target event ID. If the event still exists (the provider restored it), the system SHALL NOT remove the mapping, allowing a retry on the next sync cycle.
+
+#### Scenario: Hard-delete fallback with successful verification
+- **WHEN** soft-delete fails and hard-delete is used
+- **AND** 5 seconds after deletion, `getEvent` returns null (event is gone)
+- **THEN** the mapping is removed
+
+#### Scenario: Hard-delete fallback with event restoration
+- **WHEN** soft-delete fails and hard-delete is used
+- **AND** 5 seconds after deletion, `getEvent` still returns the event (provider restored it)
+- **THEN** the mapping is preserved for retry on the next sync cycle
+- **AND** an error is recorded
 
 ### Requirement: Skip source events that were created by sync engine
 The system SHALL check the description of every source event for the sync marker `"🔃 Automatically created by CalSync"` before classifying it. If the description contains the marker, the system SHALL skip the event to prevent sync loops. The system SHALL also maintain the `sync_created_events` table as a secondary check for cases where the description may be unavailable or truncated. When a target event is deleted (orphan processing, profile deletion, or update replacement), the corresponding row in `sync_created_events` SHALL be removed.
