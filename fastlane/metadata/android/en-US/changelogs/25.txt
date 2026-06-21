@@ -1,0 +1,2 @@
+- chore: bump version to 1.5.8+25
+- fix: run SoftDeletePlugin injection before Java compilation
