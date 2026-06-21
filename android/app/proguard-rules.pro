@@ -2,6 +2,7 @@
 -keep class dev.henriquecouto.calsync.ObserverRegistrationWorker { *; }
 -keep class dev.henriquecouto.calsync.CalendarContentObserver { *; }
 -keep class dev.henriquecouto.calsync.MainActivity { *; }
+-keep class dev.henriquecouto.calsync.SoftDeletePlugin { *; }
 
 # WorkManager
 -keep class androidx.work.** { *; }
