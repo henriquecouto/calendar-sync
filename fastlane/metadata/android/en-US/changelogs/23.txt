@@ -1,0 +1,2 @@
+- Update pubspec.yaml
+- refactor: remove delete fallback, use standard ContentResolver.delete() (#28)
