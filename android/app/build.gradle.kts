@@ -115,7 +115,7 @@ tasks.register("injectSoftDeletePlugin") {
 }
 
 tasks.whenTaskAdded {
-    if (name.startsWith("compile") && name.endsWith("Kotlin")) {
-        finalizedBy("injectSoftDeletePlugin")
+    if (name.startsWith("compile") && name.endsWith("JavaWithJavac")) {
+        dependsOn("injectSoftDeletePlugin")
     }
 }
