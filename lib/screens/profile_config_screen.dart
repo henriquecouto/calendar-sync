@@ -38,7 +38,6 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
   bool _isCreateMode = true;
   String? _nameError;
   String? _pairingError;
-  String? _eventNameError;
 
   @override
   void initState() {
@@ -136,13 +135,6 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
     }
 
     final eventName = _syncNameController.text.trim();
-    if (eventName.isEmpty) {
-      setState(() {
-        _nameError = null;
-        _eventNameError = 'Event name is required';
-      });
-      return;
-    }
 
     if (_sourceCalendarId != null &&
         _targetCalendarId != null &&
@@ -354,17 +346,19 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
                           const SizedBox(height: 16),
                           TextField(
                             controller: _syncNameController,
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               labelText: 'Sync Event Name',
                               hintText: 'e.g. Busy',
-                              border: const OutlineInputBorder(),
-                              errorText: _eventNameError,
+                              border: OutlineInputBorder(),
                             ),
-                            onChanged: (_) {
-                              if (_eventNameError != null) {
-                                setState(() => _eventNameError = null);
-                              }
-                            },
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Leave empty to keep original event titles.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.outline,
+                            ),
                           ),
                         ],
                       ),

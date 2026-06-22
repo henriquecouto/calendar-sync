@@ -43,10 +43,12 @@ class ToCreateEntry {
 class ToUpdateEntry {
   final Event sourceEvent;
   final Map<String, Object?> mapping;
+  final String projectedTitle;
 
   const ToUpdateEntry({
     required this.sourceEvent,
     required this.mapping,
+    required this.projectedTitle,
   });
 }
 
@@ -339,13 +341,14 @@ class SyncEngine {
         toUpdate.add(ToUpdateEntry(
           sourceEvent: event,
           mapping: Map<String, Object?>.from(mapping),
+          projectedTitle: syncEventName.isEmpty ? event.title : syncEventName,
         ));
         return;
       }
 
       toCreate.add(ToCreateEntry(
         sourceEvent: event,
-        projectedTitle: syncEventName,
+        projectedTitle: syncEventName.isEmpty ? event.title : syncEventName,
         projectedDescription: event.title,
         projectedStart: event.startDate,
         projectedEnd: event.endDate,
@@ -399,7 +402,7 @@ class SyncEngine {
         final hasRecurrence = event.isRecurring && event.recurrenceRule != null;
         final targetEventId = await _calendarService.createEvent(
           targetCalendarId,
-          syncEventName,
+          entry.projectedTitle,
           entry.projectedStart,
           entry.projectedEnd,
           description: '${event.title}\n---\n$_syncMarker',
@@ -449,7 +452,7 @@ class SyncEngine {
             event.recurrenceRule != null;
         final newTargetEventId = await _calendarService.createEvent(
           targetCalId,
-          syncEventName,
+          entry.projectedTitle,
           event.startDate,
           event.endDate,
           description: '${event.title}\n---\n$_syncMarker',
