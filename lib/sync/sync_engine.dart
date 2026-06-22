@@ -140,7 +140,15 @@ class SyncEngine {
             continue;
           }
 
-          toDelete.add(mapping);
+          final sourceEvent = await _calendarService.getEvent(
+            sourceEventId,
+          );
+
+          if (sourceEvent != null) {
+            sourceEvents.add(sourceEvent);
+          } else {
+            toDelete.add(mapping);
+          }
         } catch (e) {
           errors.add('$sourceEventId: $e');
         }
