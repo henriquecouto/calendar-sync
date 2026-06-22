@@ -1,0 +1,1 @@
+- feat: make sync event name optional — empty means keep original titles (#33)
