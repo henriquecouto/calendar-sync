@@ -105,8 +105,30 @@ void main() {
       );
 
       when(() => calendarService.getEvent('tgt-1')).thenAnswer(
-        (_) async => _makeEvent('tgt-1', end: futureEnd, start: futureEnd.subtract(const Duration(hours: 1))),
+        (_) async => Event(
+          eventId: 'tgt-1',
+          instanceId: 'tgt-1',
+          calendarId: targetCalId,
+          title: 'Busy',
+          description: 'Test Event\n---\n🔃 Automatically created by CalSync',
+          startDate: futureEnd.subtract(const Duration(hours: 1)),
+          endDate: futureEnd,
+          isAllDay: false,
+          availability: EventAvailability.busy,
+          status: EventStatus.none,
+          isRecurring: false,
+        ),
       );
+
+      when(() => calendarService.getEvent('src-1')).thenAnswer(
+        (_) async => _makeEvent('src-1', end: futureEnd,
+            start: futureEnd.subtract(const Duration(hours: 1))),
+      );
+
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-1'))
+          .thenAnswer((_) async => true);
 
       final plan = await engine.runDryRun(
         profileId: profileId,
@@ -115,7 +137,8 @@ void main() {
         syncEventName: syncName,
       );
 
-      expect(plan.toDelete.length, 1);
+      expect(plan.toDelete, isEmpty);
+      verify(() => calendarService.getEvent('src-1')).called(1);
     });
 
     test('recent event with source gone -> deleted', () async {
@@ -134,8 +157,12 @@ void main() {
       );
 
       when(() => calendarService.getEvent('tgt-1')).thenAnswer(
-        (_) async => _makeEvent('tgt-1', end: futureEnd, start: futureEnd.subtract(const Duration(hours: 1))),
+        (_) async => _makeEvent('tgt-1', end: futureEnd,
+            start: futureEnd.subtract(const Duration(hours: 1))),
       );
+
+      when(() => calendarService.getEvent('src-1'))
+          .thenAnswer((_) async => null);
 
       final plan = await engine.runDryRun(
         profileId: profileId,
@@ -146,6 +173,116 @@ void main() {
 
       expect(plan.toDelete, hasLength(1));
       expect(plan.toDelete.first['source_event_id'], 'src-1');
+      verify(() => calendarService.getEvent('src-1')).called(1);
+    });
+
+    test('recent event source found -> re-classified (skip when unchanged)', () async {
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => []);
+
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId)).thenAnswer(
+        (_) async => [
+          {
+            'id': 1,
+            'source_event_id': 'src-1',
+            'target_event_id': 'tgt-1',
+            'target_calendar_id': targetCalId,
+          },
+        ],
+      );
+
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
+        (_) async => Event(
+          eventId: 'tgt-1',
+          instanceId: 'tgt-1',
+          calendarId: targetCalId,
+          title: 'Busy',
+          description: 'Test Event\n---\n🔃 Automatically created by CalSync',
+          startDate: futureEnd.subtract(const Duration(hours: 1)),
+          endDate: futureEnd,
+          isAllDay: false,
+          availability: EventAvailability.busy,
+          status: EventStatus.none,
+          isRecurring: false,
+        ),
+      );
+
+      when(() => calendarService.getEvent('src-1')).thenAnswer(
+        (_) async => _makeEvent('src-1', end: futureEnd,
+            start: futureEnd.subtract(const Duration(hours: 1))),
+      );
+
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-1'))
+          .thenAnswer((_) async => true);
+
+      final plan = await engine.runDryRun(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toDelete, isEmpty);
+      expect(plan.toUpdate, isEmpty);
+      expect(plan.toSkip.any((e) => e.eventId == 'src-1'), isTrue);
+      verify(() => calendarService.getEvent('src-1')).called(1);
+    });
+
+    test('recent event source found with changed time -> classified as toUpdate', () async {
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => []);
+
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId)).thenAnswer(
+        (_) async => [
+          {
+            'id': 1,
+            'source_event_id': 'src-1',
+            'target_event_id': 'tgt-1',
+            'target_calendar_id': targetCalId,
+          },
+        ],
+      );
+
+      final changedStart = futureEnd.subtract(const Duration(hours: 2));
+
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
+        (_) async => Event(
+          eventId: 'tgt-1',
+          instanceId: 'tgt-1',
+          calendarId: targetCalId,
+          title: 'Busy',
+          description: 'Test Event\n---\n🔃 Automatically created by CalSync',
+          startDate: futureEnd.subtract(const Duration(hours: 1)),
+          endDate: futureEnd,
+          isAllDay: false,
+          availability: EventAvailability.busy,
+          status: EventStatus.none,
+          isRecurring: false,
+        ),
+      );
+
+      when(() => calendarService.getEvent('src-1')).thenAnswer(
+        (_) async => _makeEvent('src-1', end: futureEnd, start: changedStart),
+      );
+
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-1'))
+          .thenAnswer((_) async => true);
+
+      final plan = await engine.runDryRun(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toDelete, isEmpty);
+      expect(plan.toUpdate, hasLength(1));
+      expect(plan.toUpdate.first.sourceEvent.eventId, 'src-1');
+      verify(() => calendarService.getEvent('src-1')).called(1);
     });
   });
 
@@ -564,6 +701,7 @@ void main() {
 
       verify(() => calendarService.deleteEvent('tgt-1')).called(1);
       verify(() => mappingDb.deleteMapping(1)).called(1);
+      verify(() => calendarService.getEvent('src-1')).called(1);
       expect(result.deleted, ['src-1']);
     });
 
@@ -624,7 +762,7 @@ void main() {
       expect(plan.errors, isEmpty);
     });
 
-    test('all-day target with far-future end -> mapping preserved, not deleted', () async {
+    test('all-day target with far-future end -> source missing, target deleted', () async {
       when(() => calendarService.listEvents(sourceCalId))
           .thenAnswer((_) async => []);
       when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId)).thenAnswer(
@@ -647,6 +785,8 @@ void main() {
           isRecurring: false,
         ),
       );
+      when(() => calendarService.getEvent('src-1'))
+          .thenAnswer((_) async => null);
 
       final plan = await engine.runDryRun(
         profileId: profileId,
@@ -655,7 +795,7 @@ void main() {
         syncEventName: syncName,
       );
 
-      expect(plan.toDelete.length, 1);
+      expect(plan.toDelete, hasLength(1));
       expect(plan.errors, isEmpty);
     });
   });
