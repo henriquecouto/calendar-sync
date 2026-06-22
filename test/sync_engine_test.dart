@@ -1434,4 +1434,64 @@ void main() {
       expect(result.synced.contains('src-1'), isTrue);
     });
   });
+
+  group('Original event name (empty syncEventName)', () {
+    test('empty syncEventName uses source event title as projectedTitle', () async {
+      final srcEvent = Event(
+        eventId: 'src-1',
+        instanceId: 'src-1',
+        calendarId: sourceCalId,
+        title: 'Doctor Appointment',
+        startDate: futureEnd.subtract(const Duration(hours: 1)),
+        endDate: futureEnd,
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
+      );
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => []);
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+
+      final plan = await engine.runDryRun(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: '',
+      );
+
+      expect(plan.toCreate, hasLength(1));
+      expect(plan.toCreate.first.projectedTitle, 'Doctor Appointment');
+    });
+
+    test('non-empty syncEventName uses syncEventName as projectedTitle', () async {
+      final srcEvent = _makeEvent('src-1', end: futureEnd,
+          start: futureEnd.subtract(const Duration(hours: 1)));
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => []);
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+
+      final plan = await engine.runDryRun(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: 'Busy',
+      );
+
+      expect(plan.toCreate, hasLength(1));
+      expect(plan.toCreate.first.projectedTitle, 'Busy');
+    });
+  });
 }

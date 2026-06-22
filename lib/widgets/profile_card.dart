@@ -118,7 +118,9 @@ class ProfileCard extends StatelessWidget {
             ],
             const SizedBox(height: 8),
             Text(
-              '"${profile.eventName}" · $_intervalLabel',
+              profile.eventName.isNotEmpty
+                  ? '"${profile.eventName}" · $_intervalLabel'
+                  : 'Original titles · $_intervalLabel',
               style: TextStyle(fontSize: 13, color: colorScheme.outline),
             ),
             if (lastSyncText != null) ...[

@@ -31,7 +31,7 @@ void callbackDispatcher() {
         final targetId = profile.targetCalendarId;
         final syncName = profile.eventName.trim();
 
-        if (sourceId == null || targetId == null || syncName.isEmpty || profile.intervalMinutes <= 0) {
+        if (sourceId == null || targetId == null || profile.intervalMinutes <= 0) {
           continue;
         }
 

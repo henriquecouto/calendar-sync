@@ -70,7 +70,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final targetId = profile.targetCalendarId;
     final syncName = profile.eventName.trim();
 
-    if (sourceId == null || targetId == null || syncName.isEmpty) return;
+    if (sourceId == null || targetId == null) return;
 
     if (!_calendarExists(sourceId) || !_calendarExists(targetId)) return;
 
