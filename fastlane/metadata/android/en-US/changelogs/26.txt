@@ -1,0 +1,1 @@
+- fix: restore source-by-ID existence check to prevent false deletion of target events (#32)
