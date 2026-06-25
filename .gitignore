@@ -45,4 +45,16 @@ app.*.map.json
 /android/app/release
 /android/key.properties
 /android/app/release.keystore
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# Play Store credentials
+play-store-key.json
+*.play-store-key.json
+*.gplay-key.json
+
 build/

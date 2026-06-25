@@ -35,6 +35,16 @@ android {
         versionName = flutter.versionName
     }
 
+    if (gradle.startParameter.taskNames.any { it.contains("Gplay", ignoreCase = true) }) {
+        flavorDimensions += listOf("store")
+        productFlavors {
+            create("gplay") {
+                dimension = "store"
+                applicationId = "dev.henriquecouto.calsync_gplay"
+            }
+        }
+    }
+
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {

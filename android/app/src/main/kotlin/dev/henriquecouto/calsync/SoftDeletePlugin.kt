@@ -13,7 +13,7 @@ class SoftDeletePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     override fun onAttachedToEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
         appContext = binding.applicationContext
-        channel = MethodChannel(binding.binaryMessenger, "dev.henriquecouto.calsync/calendar")
+        channel = MethodChannel(binding.binaryMessenger, "calsync/calendar")
         channel.setMethodCallHandler(this)
     }
 
