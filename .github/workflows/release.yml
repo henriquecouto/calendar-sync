@@ -3,16 +3,34 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      track:
+        description: 'Play Store track to upload to'
+        required: true
+        type: choice
+        default: 'internal'
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
+      version_tag:
+        description: 'Git tag to upload (e.g., v1.6.0). Leave blank to use latest.'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: write
 
+env:
+  flutter-version: "3.44.2"
+  ruby-version: "3.4"
+
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      flutter-version: "3.44.2"
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,13 +88,9 @@ jobs:
           storeFile=release.keystore
           EOF
 
-      - name: Build APKs (per ABI)
+      - name: Build fdroid APKs (per ABI)
         if: steps.tag_check.outputs.should_release == 'true'
         run: flutter build apk --release --split-per-abi
-
-      - name: Build App Bundle
-        if: steps.tag_check.outputs.should_release == 'true'
-        run: flutter build appbundle --release
 
       - name: Generate changelog
         if: steps.tag_check.outputs.should_release == 'true'
@@ -108,5 +122,56 @@ jobs:
             build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
             build/app/outputs/flutter-apk/app-x86_64-release.apk
-            build/app/outputs/bundle/release/app-release.aab
           generate_release_notes: true
+
+  upload_play_store:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout tag (if specified)
+        if: ${{ inputs.version_tag != '' }}
+        run: git checkout "${{ inputs.version_tag }}"
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.ruby-version }}
+          bundler-cache: true
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.flutter-version }}
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Set up signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          cat > android/key.properties << EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=upload
+          storeFile=release.keystore
+          EOF
+
+      - name: Set up Play Store credentials
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_KEY: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_KEY }}
+        run: |
+          echo "$PLAY_STORE_SERVICE_ACCOUNT_KEY" > play-store-key.json
+
+      - name: Upload to Play Store
+        env:
+          TRACK: ${{ inputs.track || 'internal' }}
+        run: bundle exec fastlane deploy track:$TRACK

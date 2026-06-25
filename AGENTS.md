@@ -18,8 +18,43 @@ Android app that synchronizes events across multiple **local** device calendars.
 flutter pub get              # install dependencies
 flutter analyze              # lint / static analysis
 flutter test                 # run unit/widget tests
-flutter build apk --debug    # debug APK
-flutter build apk --release  # release APK
+flutter build apk --debug    # debug APK (fdroid flavor)
+flutter build apk --release  # release APK (fdroid flavor)
+```
+
+## Build Flavors
+
+The app has two product flavors:
+
+| Flavor  | Application ID                      | Distribution |
+|---------|-------------------------------------|-------------|
+| fdroid  | `dev.henriquecouto.calsync`         | F-Droid     |
+| gplay   | `dev.henriquecouto.calsync_gplay`   | Google Play |
+
+The `fdroid` flavor is the default (no `--flavor` needed). The `gplay` flavor requires `--flavor gplay`:
+
+```bash
+flutter build apk --release --flavor gplay          # gplay APK
+flutter build appbundle --release --flavor gplay    # gplay AAB (for Play Store)
+flutter build apk --release --split-per-abi         # fdroid per-ABI APKs
+```
+
+## Release
+
+Releases are managed via GitHub Actions (`.github/workflows/release.yml`):
+
+- **Automatic**: On push to `main`, builds fdroid APKs + gplay APK + gplay AAB and creates a GitHub Release.
+- **Manual Play Store upload**: Trigger `workflow_dispatch` in GitHub Actions UI, select a track (`internal`, `alpha`, `beta`, `production`).
+
+### Local Play Store upload (via Fastlane)
+
+Prerequisites:
+- Ruby + Bundler installed (`ruby-devel` package on Fedora)
+- Google Play service account JSON key
+
+```bash
+bundle install                                    # install Fastlane
+bundle exec fastlane deploy track:internal        # build + upload
 ```
 
 ## Gotchas

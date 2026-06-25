@@ -3,7 +3,7 @@ import 'package:device_calendar_plus/device_calendar_plus.dart';
 
 class CalendarService {
   final DeviceCalendar _plugin = DeviceCalendar.instance;
-  static const _channel = MethodChannel('dev.henriquecouto.calsync/calendar');
+  static const _channel = MethodChannel('calsync/calendar');
 
   Future<List<Calendar>> listCalendars() async {
     try {
