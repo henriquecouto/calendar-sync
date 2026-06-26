@@ -88,6 +88,14 @@ jobs:
           storeFile=release.keystore
           EOF
 
+      - name: Write adi.registration
+        if: steps.tag_check.outputs.should_release == 'true'
+        env:
+          ADI_REGISTRATION: ${{ secrets.ADI_REGISTRATION }}
+        run: |
+          mkdir -p android/app/src/main/assets
+          echo "$ADI_REGISTRATION" > android/app/src/main/assets/adi.registration
+
       - name: Build fdroid APKs (per ABI)
         if: steps.tag_check.outputs.should_release == 'true'
         run: flutter build apk --release --split-per-abi

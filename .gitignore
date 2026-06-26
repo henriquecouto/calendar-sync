@@ -52,6 +52,9 @@ fastlane/Preview.html
 fastlane/screenshots/
 fastlane/test_output/
 
+# Android developer identity verification
+**/adi-registration.properties
+
 # Play Store credentials
 play-store-key.json
 *.play-store-key.json
