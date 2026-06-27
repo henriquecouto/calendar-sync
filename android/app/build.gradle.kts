@@ -87,6 +87,12 @@ android.applicationVariants.configureEach {
     }
 }
 
+android.applicationVariants.configureEach {
+    if (flavorName == "gplay") {
+        packaging.resources.excludes.add("**/adi-registration.properties")
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
