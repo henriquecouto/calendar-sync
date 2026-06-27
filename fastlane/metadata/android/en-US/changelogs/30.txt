@@ -1,0 +1,2 @@
+- fix: usa androidComponents.onVariants para compatibilidade com AGP 9.x
+- fix: adiciona adi-registration.properties para build reproduzível do F-Droid
