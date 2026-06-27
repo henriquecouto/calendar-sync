@@ -87,9 +87,11 @@ android.applicationVariants.configureEach {
     }
 }
 
-android.applicationVariants.configureEach {
-    if (flavorName == "gplay") {
-        packaging.resources.excludes.add("**/adi-registration.properties")
+androidComponents {
+    onVariants { variant ->
+        if (variant.flavorName == "gplay") {
+            variant.packaging.resources.excludes.add("**/adi-registration.properties")
+        }
     }
 }
 
