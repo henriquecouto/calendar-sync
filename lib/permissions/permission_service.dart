@@ -26,7 +26,7 @@ class PermissionService {
     return status.isGranted;
   }
 
-  Future<void> openAppSettings() async {
+  Future<void> openSystemSettings() async {
     await openAppSettings();
   }
 }

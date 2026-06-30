@@ -71,7 +71,7 @@ class _PermissionGateState extends State<PermissionGate> {
   }
 
   Future<void> _openSettings() async {
-    await _service.openAppSettings();
+    await _service.openSystemSettings();
     _checkPermissions();
   }
 
