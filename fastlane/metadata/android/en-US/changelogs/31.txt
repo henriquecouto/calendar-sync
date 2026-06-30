@@ -1,0 +1,3 @@
+- Bump version from 1.7.2+30 to 1.7.3+31
+- fix: resolve recursive call in PermissionService.openAppSettings() (#39)
+- archive: keep-original-event-names and setup-fastlane-playstore [skip ci]
