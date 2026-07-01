@@ -1494,4 +1494,262 @@ void main() {
       expect(plan.toCreate.first.projectedTitle, 'Busy');
     });
   });
+
+  group('copyDescription', () {
+    final start = DateTime.utc(2027, 6, 1, 10, 0);
+    final end = DateTime.utc(2027, 6, 1, 11, 0);
+
+    test('create path with copyDescription=true includes source description', () async {
+      final srcEvent = Event(
+        eventId: 'src-1',
+        instanceId: 'src-1',
+        calendarId: sourceCalId,
+        title: 'Test',
+        description: 'Q3 planning notes',
+        startDate: start,
+        endDate: end,
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
+      );
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => []);
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-1'))
+          .thenAnswer((_) async => false);
+      when(() => calendarService.createEvent(
+        targetCalId, syncName, start, end,
+        description: 'Q3 planning notes\n\nTest\n---\n🔃 Automatically created by CalSync',
+        isAllDay: false,
+      )).thenAnswer((_) async => 'new-id-1');
+      when(() => mappingDb.insertMapping(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId, sourceEventId: 'src-1',
+        targetCalendarId: targetCalId, targetEventId: 'new-id-1',
+        syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
+      )).thenAnswer((_) async {});
+      when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-id-1'))
+          .thenAnswer((_) async {});
+
+      final result = await engine.runSync(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+        copyDescription: true,
+      );
+
+      verify(() => calendarService.createEvent(
+        targetCalId, syncName, start, end,
+        description: 'Q3 planning notes\n\nTest\n---\n🔃 Automatically created by CalSync',
+        isAllDay: false,
+      )).called(1);
+      expect(result.synced, ['src-1']);
+    });
+
+    test('copyDescription=true with null source description falls back to standard', () async {
+      final srcEvent = Event(
+        eventId: 'src-2',
+        instanceId: 'src-2',
+        calendarId: sourceCalId,
+        title: 'Test',
+        description: null,
+        startDate: start,
+        endDate: end,
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
+      );
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => []);
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-2'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-2'))
+          .thenAnswer((_) async => false);
+      when(() => calendarService.createEvent(
+        targetCalId, syncName, start, end,
+        description: 'Test\n---\n🔃 Automatically created by CalSync',
+        isAllDay: false,
+      )).thenAnswer((_) async => 'new-id-2');
+      when(() => mappingDb.insertMapping(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId, sourceEventId: 'src-2',
+        targetCalendarId: targetCalId, targetEventId: 'new-id-2',
+        syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
+      )).thenAnswer((_) async {});
+      when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-id-2'))
+          .thenAnswer((_) async {});
+
+      final result = await engine.runSync(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+        copyDescription: true,
+      );
+
+      verify(() => calendarService.createEvent(
+        targetCalId, syncName, start, end,
+        description: 'Test\n---\n🔃 Automatically created by CalSync',
+        isAllDay: false,
+      )).called(1);
+      expect(result.synced, ['src-2']);
+    });
+  });
+
+  group('copyLocation', () {
+    final start = DateTime.utc(2027, 6, 1, 10, 0);
+    final end = DateTime.utc(2027, 6, 1, 11, 0);
+
+    test('create path with copyLocation=true passes location to createEvent', () async {
+      final srcEvent = Event(
+        eventId: 'src-3',
+        instanceId: 'src-3',
+        calendarId: sourceCalId,
+        title: 'Test',
+        location: 'Conference Room A',
+        startDate: start,
+        endDate: end,
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
+      );
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => []);
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-3'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-3'))
+          .thenAnswer((_) async => false);
+      when(() => calendarService.createEvent(
+        targetCalId, syncName, start, end,
+        description: 'Test\n---\n🔃 Automatically created by CalSync',
+        isAllDay: false,
+        location: 'Conference Room A',
+      )).thenAnswer((_) async => 'new-id-3');
+      when(() => mappingDb.insertMapping(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId, sourceEventId: 'src-3',
+        targetCalendarId: targetCalId, targetEventId: 'new-id-3',
+        syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
+      )).thenAnswer((_) async {});
+      when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-id-3'))
+          .thenAnswer((_) async {});
+
+      final result = await engine.runSync(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+        copyLocation: true,
+      );
+
+      verify(() => calendarService.createEvent(
+        targetCalId, syncName, start, end,
+        description: 'Test\n---\n🔃 Automatically created by CalSync',
+        isAllDay: false,
+        location: 'Conference Room A',
+      )).called(1);
+      expect(result.synced, ['src-3']);
+    });
+
+    test('create path with copyLocation=false does not pass location', () async {
+      final srcEvent = Event(
+        eventId: 'src-4',
+        instanceId: 'src-4',
+        calendarId: sourceCalId,
+        title: 'Test',
+        location: 'Conference Room A',
+        startDate: start,
+        endDate: end,
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
+      );
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => []);
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-4'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-4'))
+          .thenAnswer((_) async => false);
+      when(() => calendarService.createEvent(
+        targetCalId, syncName, start, end,
+        description: 'Test\n---\n🔃 Automatically created by CalSync',
+        isAllDay: false,
+        location: null,
+      )).thenAnswer((_) async => 'new-id-4');
+      when(() => mappingDb.insertMapping(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId, sourceEventId: 'src-4',
+        targetCalendarId: targetCalId, targetEventId: 'new-id-4',
+        syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
+      )).thenAnswer((_) async {});
+      when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-id-4'))
+          .thenAnswer((_) async {});
+
+      final result = await engine.runSync(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      verify(() => calendarService.createEvent(
+        targetCalId, syncName, start, end,
+        description: 'Test\n---\n🔃 Automatically created by CalSync',
+        isAllDay: false,
+        location: null,
+      )).called(1);
+      expect(result.synced, ['src-4']);
+    });
+  });
+
+  group('buildDescription', () {
+    const marker = '🔃 Automatically created by CalSync';
+
+    test('copyDescription=false returns standard format', () {
+      final result = buildDescription('Doctor Appointment', 'Q3 notes', false);
+      expect(result, 'Doctor Appointment\n---\n$marker');
+    });
+
+    test('copyDescription=true with non-empty description prepends it', () {
+      final result = buildDescription('Doctor Appointment', 'Q3 notes', true);
+      expect(result, 'Q3 notes\n\nDoctor Appointment\n---\n$marker');
+    });
+
+    test('copyDescription=true with null description returns standard format', () {
+      final result = buildDescription('Doctor Appointment', null, true);
+      expect(result, 'Doctor Appointment\n---\n$marker');
+    });
+
+    test('copyDescription=true with empty description returns standard format', () {
+      final result = buildDescription('Doctor Appointment', '', true);
+      expect(result, 'Doctor Appointment\n---\n$marker');
+    });
+
+    test('copyDescription=false with null description returns standard format', () {
+      final result = buildDescription('Doctor Appointment', null, false);
+      expect(result, 'Doctor Appointment\n---\n$marker');
+    });
+  });
 }

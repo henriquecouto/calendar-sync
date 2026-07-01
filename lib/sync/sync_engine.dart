@@ -6,6 +6,20 @@ import 'mapping_database.dart';
 
 const _syncMarker = '\u{1F503} Automatically created by CalSync';
 
+String buildDescription(
+  String originalTitle,
+  String? sourceDescription,
+  bool copyDescription,
+) {
+  String description = '$originalTitle\n---\n$_syncMarker';
+  if (copyDescription &&
+      sourceDescription != null &&
+      sourceDescription.isNotEmpty) {
+    description = '$sourceDescription\n\n$description';
+  }
+  return description;
+}
+
 class SyncPlan {
   final List<ToCreateEntry> toCreate;
   final List<ToUpdateEntry> toUpdate;
@@ -63,6 +77,8 @@ class SyncEngine {
     required String sourceCalendarId,
     required String targetCalendarId,
     required String syncEventName,
+    bool copyDescription = false,
+    bool copyLocation = false,
   }) async {
     final plan = await _classify(
       profileId: profileId,
@@ -88,6 +104,8 @@ class SyncEngine {
       sourceCalendarId: sourceCalendarId,
       targetCalendarId: targetCalendarId,
       syncEventName: syncEventName,
+      copyDescription: copyDescription,
+      copyLocation: copyLocation,
     );
 
     return result;
@@ -365,6 +383,8 @@ class SyncEngine {
     required String sourceCalendarId,
     required String targetCalendarId,
     required String syncEventName,
+    required bool copyDescription,
+    required bool copyLocation,
   }) async {
     final synced = <String>[];
     final skipped = <String>[];
@@ -405,10 +425,15 @@ class SyncEngine {
           entry.projectedTitle,
           entry.projectedStart,
           entry.projectedEnd,
-          description: '${event.title}\n---\n$_syncMarker',
+          description: buildDescription(
+            event.title,
+            event.description,
+            copyDescription,
+          ),
           isAllDay: entry.projectedAllDay,
               recurrenceRule:
                   hasRecurrence ? event.recurrenceRule : null,
+          location: copyLocation ? event.location : null,
         );
 
         if (targetEventId == null) {
@@ -455,10 +480,15 @@ class SyncEngine {
           entry.projectedTitle,
           event.startDate,
           event.endDate,
-          description: '${event.title}\n---\n$_syncMarker',
+          description: buildDescription(
+            event.title,
+            event.description,
+            copyDescription,
+          ),
           isAllDay: event.isAllDay,
               recurrenceRule:
                   hasRecurrence ? event.recurrenceRule : null,
+          location: copyLocation ? event.location : null,
         );
 
         if (newTargetEventId == null) {

@@ -80,6 +80,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       sourceCalendarId: sourceId,
       targetCalendarId: targetId,
       syncEventName: syncName,
+      copyDescription: profile.copyDescription,
+      copyLocation: profile.copyLocation,
     );
 
 

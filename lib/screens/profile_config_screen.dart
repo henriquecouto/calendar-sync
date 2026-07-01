@@ -31,6 +31,8 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
   String? _targetCalendarId;
   int _intervalMinutes = 60;
   bool _syncEnabled = true;
+  bool _copyDescription = false;
+  bool _copyLocation = false;
   String? _profileId;
 
   List<_CalendarItem> _calendars = [];
@@ -59,6 +61,8 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
         _syncNameController.text = profile.eventName;
         _intervalMinutes = profile.intervalMinutes;
         _syncEnabled = profile.enabled;
+        _copyDescription = profile.copyDescription;
+        _copyLocation = profile.copyLocation;
         _nameController.text = profile.name;
       }
     }
@@ -153,6 +157,8 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
           eventName: eventName,
           intervalMinutes: _intervalMinutes,
           enabled: _syncEnabled,
+          copyDescription: _copyDescription,
+          copyLocation: _copyLocation,
         ));
       }
     } else {
@@ -163,6 +169,8 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
         eventName: eventName,
         intervalMinutes: _intervalMinutes,
         enabled: _syncEnabled,
+        copyDescription: _copyDescription,
+        copyLocation: _copyLocation,
       );
     }
 
@@ -215,6 +223,22 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
+    final sectionTitleStyle = TextStyle(
+      fontWeight: FontWeight.w600,
+      fontSize: 16,
+      color: colorScheme.onSurface,
+    );
+
+    final hintStyle = TextStyle(
+      fontSize: 12,
+      color: colorScheme.outline,
+    );
+
+    final advancedExpanded = _isEditing &&
+        (_syncNameController.text.isNotEmpty ||
+            _copyDescription ||
+            _copyLocation);
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -236,11 +260,8 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Profile Name',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurface,
-                            ),
+                            'Basic',
+                            style: sectionTitleStyle,
                           ),
                           const SizedBox(height: 16),
                           TextField(
@@ -257,24 +278,6 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
                               }
                             },
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Calendar Pairing',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
                           const SizedBox(height: 16),
                           if (_calendars.isEmpty)
                             const EmptyState(
@@ -282,133 +285,44 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
                               title: 'No calendars found',
                             )
                           else ...[
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                DropdownMenu<String>(
-                                  initialSelection: _sourceCalendarId,
-                                  label: const Text('Source Calendar'),
-                                  errorText: _pairingError,
-                                  expandedInsets: EdgeInsets.zero,
-                                  dropdownMenuEntries: _calendars.map((c) {
-                                    return DropdownMenuEntry(
-                                        value: c.id, label: c.name);
-                                  }).toList(),
-                                  onSelected: (val) {
-                                    if (val != null) {
-                                      setState(() {
-                                        _sourceCalendarId = val;
-                                        _pairingError = null;
-                                      });
-                                    }
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-                                DropdownMenu<String>(
-                                  initialSelection: _targetCalendarId,
-                                  label: const Text('Target Calendar'),
-                                  errorText: _pairingError,
-                                  expandedInsets: EdgeInsets.zero,
-                                  dropdownMenuEntries: _calendars.map((c) {
-                                    return DropdownMenuEntry(
-                                        value: c.id, label: c.name);
-                                  }).toList(),
-                                  onSelected: (val) {
-                                    if (val != null) {
-                                      setState(() {
-                                        _targetCalendarId = val;
-                                        _pairingError = null;
-                                      });
-                                    }
-                                  },
-                                ),
-                              ],
+                            DropdownMenu<String>(
+                              initialSelection: _sourceCalendarId,
+                              label: const Text('Source Calendar'),
+                              errorText: _pairingError,
+                              expandedInsets: EdgeInsets.zero,
+                              dropdownMenuEntries: _calendars.map((c) {
+                                return DropdownMenuEntry(
+                                    value: c.id, label: c.name);
+                              }).toList(),
+                              onSelected: (val) {
+                                if (val != null) {
+                                  setState(() {
+                                    _sourceCalendarId = val;
+                                    _pairingError = null;
+                                  });
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            DropdownMenu<String>(
+                              initialSelection: _targetCalendarId,
+                              label: const Text('Target Calendar'),
+                              errorText: _pairingError,
+                              expandedInsets: EdgeInsets.zero,
+                              dropdownMenuEntries: _calendars.map((c) {
+                                return DropdownMenuEntry(
+                                    value: c.id, label: c.name);
+                              }).toList(),
+                              onSelected: (val) {
+                                if (val != null) {
+                                  setState(() {
+                                    _targetCalendarId = val;
+                                    _pairingError = null;
+                                  });
+                                }
+                              },
                             ),
                           ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Event Naming',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _syncNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Sync Event Name',
-                              hintText: 'e.g. Busy',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Leave empty to keep original event titles.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.outline,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Schedule',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          DropdownMenu<int>(
-                            initialSelection: _intervalMinutes,
-                            label: const Text('Fallback Interval'),
-                            expandedInsets: EdgeInsets.zero,
-                            dropdownMenuEntries: const [
-                              DropdownMenuEntry(
-                                  value: 0, label: 'Off (manual only)'),
-                              DropdownMenuEntry(
-                                  value: 15, label: '15 minutes'),
-                              DropdownMenuEntry(
-                                  value: 30, label: '30 minutes'),
-                              DropdownMenuEntry(value: 60, label: '1 hour'),
-                              DropdownMenuEntry(value: 120, label: '2 hours'),
-                              DropdownMenuEntry(value: 360, label: '6 hours'),
-                            ],
-                            onSelected: (val) {
-                              if (val != null) {
-                                setState(() => _intervalMinutes = val);
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Changes are detected within seconds. '
-                            'The interval above is a fallback only.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.outline,
-                            ),
-                          ),
                           const SizedBox(height: 8),
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
@@ -421,6 +335,103 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
                         ],
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        dividerColor: Colors.transparent,
+                      ),
+                      child: ExpansionTile(
+                        title: Text(
+                          'Advanced',
+                          style: sectionTitleStyle,
+                        ),
+                        initiallyExpanded: advancedExpanded,
+                        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        children: [
+                        TextField(
+                          controller: _syncNameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Sync Event Name',
+                            hintText: 'e.g. Busy',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Leave empty to keep original event titles.',
+                            style: hintStyle,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownMenu<int>(
+                          initialSelection: _intervalMinutes,
+                          label: const Text('Fallback Interval'),
+                          expandedInsets: EdgeInsets.zero,
+                          dropdownMenuEntries: const [
+                            DropdownMenuEntry(
+                                value: 0, label: 'Off (manual only)'),
+                            DropdownMenuEntry(
+                                value: 15, label: '15 minutes'),
+                            DropdownMenuEntry(
+                                value: 30, label: '30 minutes'),
+                            DropdownMenuEntry(value: 60, label: '1 hour'),
+                            DropdownMenuEntry(value: 120, label: '2 hours'),
+                            DropdownMenuEntry(value: 360, label: '6 hours'),
+                          ],
+                          onSelected: (val) {
+                            if (val != null) {
+                              setState(() => _intervalMinutes = val);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Changes are detected within seconds. '
+                            'The interval above is a fallback only.',
+                            style: hintStyle,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Copy location'),
+                          subtitle: DefaultTextStyle(
+                            style: hintStyle,
+                            child: const Text(
+                              'Copy the source event location to the '
+                              'synced event',
+                            ),
+                          ),
+                          value: _copyLocation,
+                          onChanged: (val) {
+                            setState(() => _copyLocation = val);
+                          },
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Copy description'),
+                          subtitle: DefaultTextStyle(
+                            style: hintStyle,
+                            child: const Text(
+                              'Copy the source event description to the '
+                              'synced event',
+                            ),
+                          ),
+                          value: _copyDescription,
+                          onChanged: (val) {
+                            setState(() => _copyDescription = val);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                   ),
                   const SizedBox(height: 24),
                   FilledButton.icon(
