@@ -41,6 +41,8 @@ void callbackDispatcher() {
             sourceCalendarId: sourceId,
             targetCalendarId: targetId,
             syncEventName: syncName,
+            copyDescription: profile.copyDescription,
+            copyLocation: profile.copyLocation,
           );
 
 

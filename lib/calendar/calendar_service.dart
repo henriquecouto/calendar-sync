@@ -34,6 +34,7 @@ class CalendarService {
     String? description,
     bool? isAllDay,
     RecurrenceRule? recurrenceRule,
+    String? location,
   }) async {
     try {
       return await _plugin.createEvent(
@@ -44,6 +45,7 @@ class CalendarService {
         description: description,
         isAllDay: isAllDay ?? false,
         recurrenceRule: recurrenceRule,
+        location: location,
       );
     } on DeviceCalendarException {
       return null;

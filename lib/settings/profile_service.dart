@@ -10,6 +10,8 @@ class SyncProfile {
   final String eventName;
   final int intervalMinutes;
   final bool enabled;
+  final bool copyDescription;
+  final bool copyLocation;
 
   const SyncProfile({
     required this.id,
@@ -19,6 +21,8 @@ class SyncProfile {
     required this.eventName,
     required this.intervalMinutes,
     required this.enabled,
+    this.copyDescription = false,
+    this.copyLocation = false,
   });
 
   SyncProfile copyWith({
@@ -28,6 +32,8 @@ class SyncProfile {
     String? eventName,
     int? intervalMinutes,
     bool? enabled,
+    bool? copyDescription,
+    bool? copyLocation,
   }) {
     return SyncProfile(
       id: id,
@@ -37,6 +43,8 @@ class SyncProfile {
       eventName: eventName ?? this.eventName,
       intervalMinutes: intervalMinutes ?? this.intervalMinutes,
       enabled: enabled ?? this.enabled,
+      copyDescription: copyDescription ?? this.copyDescription,
+      copyLocation: copyLocation ?? this.copyLocation,
     );
   }
 }
@@ -50,6 +58,8 @@ class ProfileService {
   static const _columnEventName = 'event_name';
   static const _columnIntervalMinutes = 'interval_minutes';
   static const _columnEnabled = 'enabled';
+  static const _columnCopyDescription = 'copy_description';
+  static const _columnCopyLocation = 'copy_location';
 
   final DatabaseProvider _dbProvider;
 
@@ -64,6 +74,8 @@ class ProfileService {
     required String eventName,
     required int intervalMinutes,
     required bool enabled,
+    bool copyDescription = false,
+    bool copyLocation = false,
   }) async {
     final db = await database;
     final id = const Uuid().v4();
@@ -75,6 +87,8 @@ class ProfileService {
       _columnEventName: eventName,
       _columnIntervalMinutes: intervalMinutes,
       _columnEnabled: enabled ? 1 : 0,
+      _columnCopyDescription: copyDescription ? 1 : 0,
+      _columnCopyLocation: copyLocation ? 1 : 0,
     });
     return SyncProfile(
       id: id,
@@ -84,6 +98,8 @@ class ProfileService {
       eventName: eventName,
       intervalMinutes: intervalMinutes,
       enabled: enabled,
+      copyDescription: copyDescription,
+      copyLocation: copyLocation,
     );
   }
 
@@ -98,6 +114,8 @@ class ProfileService {
         _columnEventName: profile.eventName,
         _columnIntervalMinutes: profile.intervalMinutes,
         _columnEnabled: profile.enabled ? 1 : 0,
+        _columnCopyDescription: profile.copyDescription ? 1 : 0,
+        _columnCopyLocation: profile.copyLocation ? 1 : 0,
       },
       where: '$_columnId = ?',
       whereArgs: [profile.id],
@@ -212,6 +230,8 @@ class ProfileService {
       eventName: (row[_columnEventName] as String?) ?? '',
       intervalMinutes: (row[_columnIntervalMinutes] as int?) ?? 60,
       enabled: (row[_columnEnabled] as int?) == 1,
+      copyDescription: (row[_columnCopyDescription] as int?) == 1,
+      copyLocation: (row[_columnCopyLocation] as int?) == 1,
     );
   }
 }
