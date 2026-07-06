@@ -9,11 +9,11 @@ bool canCreateProfile(SubscriptionService service, int profileCount) {
 
 bool canEnableProfile(
   SubscriptionService service,
-  int enabledCount,
+  int profileIndex,
   bool isTurningOn,
 ) {
   if (!isTurningOn) return true;
-  return service.isSubscribed || enabledCount < 1;
+  return service.isSubscribed || profileIndex == 0;
 }
 
 const _preExpiryEnabledProfilesKey = 'pre_expiry_enabled_profiles';
