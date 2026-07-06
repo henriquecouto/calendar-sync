@@ -1,3 +1,12 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="com.android.vending.BILLING"/>
+    <application>
+        <activity android:name="com.android.billingclient.api.ProxyBillingActivity"
+            tools:node="merge" />
+        <activity android:name="com.android.billingclient.api.ProxyBillingActivityV2"
+            tools:node="merge" />
+        <meta-data android:name="com.google.android.play.billingclient.version"
+            tools:node="merge" />
+    </application>
 </manifest>
