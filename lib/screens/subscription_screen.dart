@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../main.dart';
 import '../subscriptions/subscription_service.dart';
@@ -109,7 +110,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     const SizedBox(height: 16),
                     FilledButton.tonalIcon(
                       onPressed: () {
-                        // Deep link to Play Store subscription management.
+                        launchUrl(
+                          Uri.parse(
+                            'https://play.google.com/store/account/subscriptions'
+                            '?package=dev.henriquecouto.calsync_gplay',
+                          ),
+                          mode: LaunchMode.externalApplication,
+                        );
                       },
                       icon: const Icon(Icons.open_in_new),
                       label: const Text('Manage Subscription'),

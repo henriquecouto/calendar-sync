@@ -119,7 +119,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (enabled) {
       final enabledCount = _profiles.where((p) => p.enabled).length;
       if (!canEnableProfile(subscriptionService, enabledCount, enabled)) {
-        _showUpsell();
+        await _showUpsell();
+        _load();
         return;
       }
     }
@@ -128,16 +129,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _load();
   }
 
-  void _navigateToCreateOrUpsell() {
+  Future<void> _navigateToCreateOrUpsell() async {
     if (canCreateProfile(subscriptionService, _profiles.length)) {
-      _navigateToConfig();
+      await _navigateToConfig();
     } else {
-      _showUpsell();
+      await _showUpsell();
     }
   }
 
-  void _showUpsell() {
-    showModalBottomSheet(
+  Future<void> _showUpsell() async {
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

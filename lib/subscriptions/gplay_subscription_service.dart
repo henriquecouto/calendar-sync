@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
 
 import 'subscription_service.dart';
 
 const _productIdMonthly = 'premium_monthly';
 const _productIdYearly = 'premium_yearly';
-const _subscribedCacheKey = 'subscription_active';
 
 class GplaySubscriptionService extends SubscriptionService
     with WidgetsBindingObserver {
@@ -22,16 +22,13 @@ class GplaySubscriptionService extends SubscriptionService
     if (_initialized) return;
     _initialized = true;
 
-    final prefs = await SharedPreferences.getInstance();
-    entitled = prefs.getBool(_subscribedCacheKey) ?? false;
-
     final available = await _iap.isAvailable();
     if (!available) return;
 
     _purchaseSub = _iap.purchaseStream.listen(_onPurchaseUpdate);
     WidgetsBinding.instance.addObserver(this);
 
-    await _iap.restorePurchases();
+    await _querySubscriptionStatus();
   }
 
   @override
@@ -76,14 +73,14 @@ class GplaySubscriptionService extends SubscriptionService
 
   @override
   Future<bool> restorePurchases() async {
-    await _iap.restorePurchases();
+    await _querySubscriptionStatus();
     return entitled;
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _iap.restorePurchases();
+      _querySubscriptionStatus();
     }
   }
 
@@ -94,9 +91,41 @@ class GplaySubscriptionService extends SubscriptionService
     WidgetsBinding.instance.removeObserver(this);
   }
 
-  Future<void> _cacheSubscribed(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_subscribedCacheKey, value);
+  Future<void> _querySubscriptionStatus() async {
+    final available = await _iap.isAvailable();
+    if (!available) return;
+
+    bool hasActiveSub = false;
+
+    try {
+      final addition =
+          InAppPurchasePlatformAddition.instance;
+      if (addition is InAppPurchaseAndroidPlatformAddition) {
+        final response = await addition.queryPastPurchases();
+        if (response.error == null) {
+          for (final purchase in response.pastPurchases) {
+            if (purchase.status == PurchaseStatus.purchased ||
+                purchase.status == PurchaseStatus.restored) {
+              if (purchase.productID == _productIdMonthly ||
+                  purchase.productID == _productIdYearly) {
+                hasActiveSub = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {
+      await _iap.restorePurchases();
+      return;
+    }
+
+    final previous = entitled;
+    entitled = hasActiveSub;
+
+    if (previous != entitled) {
+      onStatusChanged?.call(entitled);
+    }
   }
 
   void _onPurchaseUpdate(List<PurchaseDetails> purchases) {
@@ -108,7 +137,6 @@ class GplaySubscriptionService extends SubscriptionService
               purchase.productID == _productIdYearly) {
             final previous = entitled;
             entitled = true;
-            _cacheSubscribed(true);
             if (previous != entitled) {
               onStatusChanged?.call(entitled);
             }
