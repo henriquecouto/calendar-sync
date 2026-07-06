@@ -6,7 +6,5 @@
             tools:node="merge" />
         <activity android:name="com.android.billingclient.api.ProxyBillingActivityV2"
             tools:node="merge" />
-        <meta-data android:name="com.google.android.play.billingclient.version"
-            tools:node="merge" />
     </application>
 </manifest>

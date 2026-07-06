@@ -49,7 +49,6 @@
         </receiver>
         <activity android:name="com.android.billingclient.api.ProxyBillingActivity" tools:node="remove" />
         <activity android:name="com.android.billingclient.api.ProxyBillingActivityV2" tools:node="remove" />
-        <meta-data android:name="com.google.android.play.billingclient.version" tools:node="remove" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
