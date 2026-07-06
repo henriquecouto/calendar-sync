@@ -91,6 +91,8 @@ androidComponents {
     onVariants { variant ->
         if (variant.flavorName == "gplay") {
             variant.packaging.resources.excludes.add("**/adi-registration.properties")
+        } else {
+            variant.packaging.resources.excludes.add("**/billing.properties")
         }
     }
 }
