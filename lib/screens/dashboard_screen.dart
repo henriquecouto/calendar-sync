@@ -8,7 +8,16 @@ import '../sync/sync_status_screen.dart';
 import '../sync/dry_run_screen.dart';
 import '../background/sync_scheduler.dart';
 import '../widgets/empty_state.dart';
+import '../main.dart';
+import '../subscriptions/entitlement.dart';
 import 'profile_config_screen.dart';
+import 'upsell_bottom_sheet.dart';
+import 'subscription_screen.dart';
+
+const _subscriptionsEnabled = bool.fromEnvironment(
+  'SUBSCRIPTIONS_ENABLED',
+  defaultValue: false,
+);
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -107,9 +116,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _toggleEnabled(SyncProfile profile, bool enabled) async {
+    if (enabled) {
+      final enabledCount = _profiles.where((p) => p.enabled).length;
+      if (!canEnableProfile(subscriptionService, enabledCount, enabled)) {
+        _showUpsell();
+        return;
+      }
+    }
     await _profileService.updateProfile(profile.copyWith(enabled: enabled));
     await SyncScheduler.updatePeriodicTask();
     _load();
+  }
+
+  void _navigateToCreateOrUpsell() {
+    if (canCreateProfile(subscriptionService, _profiles.length)) {
+      _navigateToConfig();
+    } else {
+      _showUpsell();
+    }
+  }
+
+  void _showUpsell() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const UpsellBottomSheet(),
+    );
   }
 
   Future<void> _navigateToConfig({String? profileId}) async {
@@ -161,9 +194,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const Text('CalSync'),
         centerTitle: true,
+        actions: [
+          if (_subscriptionsEnabled)
+            IconButton(
+              icon: const Icon(Icons.workspace_premium_outlined),
+              tooltip: 'CalSync Premium',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SubscriptionScreen(),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToConfig(),
+        onPressed: _navigateToCreateOrUpsell,
         tooltip: 'Add profile',
         child: const Icon(Icons.add),
       ),
@@ -287,7 +335,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               subtitle:
                   'Set up a profile to start syncing\nevents between calendars',
               action: FilledButton.icon(
-                onPressed: () => _navigateToConfig(),
+                onPressed: _navigateToCreateOrUpsell,
                 icon: const Icon(Icons.add),
                 label: const Text('Create Profile'),
               ),

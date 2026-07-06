@@ -1,10 +1,19 @@
 [
   {
-    "label": "Flutter Debug",
+    "label": "Flutter Debug (fdroid)",
     "adapter": "Dart",
     "request": "launch",
     "type": "flutter",
     "program": "$ZED_WORKTREE_ROOT/lib/main.dart",
     "cwd": "$ZED_WORKTREE_ROOT",
+  },
+  {
+    "label": "Flutter Debug (gplay)",
+    "adapter": "Dart",
+    "request": "launch",
+    "type": "flutter",
+    "program": "$ZED_WORKTREE_ROOT/lib/main.dart",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "args": ["--flavor", "gplay", "--dart-define=SUBSCRIPTIONS_ENABLED=true"],
   },
 ]
