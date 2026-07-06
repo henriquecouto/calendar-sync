@@ -115,10 +115,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _toggleEnabled(SyncProfile profile, bool enabled) async {
+  Future<void> _toggleEnabled(SyncProfile profile, bool enabled, int profileIndex) async {
     if (enabled) {
-      final enabledCount = _profiles.where((p) => p.enabled).length;
-      if (!canEnableProfile(subscriptionService, enabledCount, enabled)) {
+      if (!canEnableProfile(subscriptionService, profileIndex, enabled)) {
         await _showUpsell();
         _load();
         return;
@@ -398,7 +397,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               Switch(
                                 value: profile.enabled,
-                                onChanged: (val) => _toggleEnabled(profile, val),
+                                onChanged: (val) => _toggleEnabled(profile, val, index),
                               ),
                             ],
                           ),

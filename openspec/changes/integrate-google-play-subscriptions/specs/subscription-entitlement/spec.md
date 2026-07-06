@@ -73,34 +73,78 @@ The system SHALL allow creating a new profile only when the user is subscribed O
 - **WHEN** user taps the Create Profile FAB on fdroid
 - **THEN** the ProfileConfigScreen opens normally regardless of profile count
 
-### Requirement: Profile enable toggle is blocked for unsubscribed users with multiple profiles
+### Requirement: Profile enable is restricted to the first profile for unsubscribed users
 
-The system SHALL block enabling a profile when the user is not subscribed AND enabling it would result in more than 1 enabled profile. Turning a profile OFF is always allowed.
+The system SHALL restrict which profile can be enabled when the user is not subscribed: only the first profile in the ordered list (index 0) MAY be enabled. Any other profile's enable toggle SHALL be blocked. The ordering is determined by the profile list query (`ORDER BY name ASC`). Turning a profile OFF is always allowed regardless of index.
 
-#### Scenario: Enabling first profile is always allowed
+#### Scenario: First profile can be enabled without subscription
 
-- **WHEN** user has 0 enabled profiles and toggles a profile ON on gplay while not subscribed
+- **WHEN** user has 3 profiles (ordered A, B, C), is NOT subscribed, and toggles profile A (index 0) ON on gplay
 - **THEN** the toggle succeeds
 
-#### Scenario: Enabling second profile is blocked for unsubscribed user
+#### Scenario: Second profile cannot be enabled without subscription
 
-- **WHEN** user has 1 enabled profile, is NOT subscribed, and toggles a second profile ON on gplay
+- **WHEN** user has 3 profiles, is NOT subscribed, and toggles profile B (index 1) ON on gplay
 - **THEN** the toggle is rejected and the upsell bottom sheet is displayed
 
-#### Scenario: Enabling second profile is allowed for subscribed user
+#### Scenario: Third profile cannot be enabled without subscription
 
-- **WHEN** user has 1 enabled profile, IS subscribed, and toggles a second profile ON on gplay
-- **THEN** the toggle succeeds
+- **WHEN** user has 3 profiles, is NOT subscribed, and toggles profile C (index 2) ON on gplay
+- **THEN** the toggle is rejected and the upsell bottom sheet is displayed
+
+#### Scenario: All profiles can be enabled with subscription
+
+- **WHEN** user has 3 profiles, IS subscribed, and toggles any profile ON on gplay
+- **THEN** the toggle succeeds regardless of index
 
 #### Scenario: Disabling a profile is always allowed
 
 - **WHEN** user toggles any profile OFF on gplay
-- **THEN** the toggle succeeds regardless of subscription status
+- **THEN** the toggle succeeds regardless of subscription status or index
+
+#### Scenario: Re-enabling the first profile after disabling it is allowed
+
+- **WHEN** user has 3 profiles, is NOT subscribed, disables profile A (index 0), then re-enables it
+- **THEN** the toggle succeeds (index 0 is always free)
 
 #### Scenario: Fdroid has no toggle restrictions
 
 - **WHEN** user toggles any profile ON or OFF on fdroid
-- **THEN** the toggle always succeeds regardless of profile count
+- **THEN** the toggle always succeeds regardless of profile count or index
+
+### Requirement: ProfileConfigScreen enforces the first-profile-only rule
+
+The system SHALL enforce the profile enable restriction in the ProfileConfigScreen, not just on the dashboard. When editing a profile that is not the first in the list (index > 0) and the user is not subscribed, the Sync enabled toggle SHALL be disabled and the save operation SHALL ensure the profile is saved with `enabled: false`.
+
+#### Scenario: Sync enabled toggle is blocked in config for non-first profile
+
+- **WHEN** user opens ProfileConfigScreen in edit mode for profile B (index 1) and is NOT subscribed on gplay
+- **THEN** the Sync enabled switch is disabled (OFF, non-interactive) with an upsell prompt
+
+#### Scenario: Sync enabled toggle is unlocked in config for first profile
+
+- **WHEN** user opens ProfileConfigScreen in edit mode for profile A (index 0) and is NOT subscribed on gplay
+- **THEN** the Sync enabled switch operates normally
+
+#### Scenario: Save forces enabled=false for non-first profile without subscription
+
+- **WHEN** user edits profile B (index 1) on gplay without subscription and taps Save
+- **THEN** the profile is saved with `enabled: false` regardless of the toggle state
+
+#### Scenario: Save respects enabled state for first profile
+
+- **WHEN** user edits profile A (index 0) on gplay without subscription and sets Sync enabled to ON, then taps Save
+- **THEN** the profile is saved with `enabled: true`
+
+#### Scenario: Config enforces nothing when subscribed
+
+- **WHEN** user edits any profile on gplay with an active subscription
+- **THEN** the Sync enabled toggle and save operate normally regardless of index
+
+#### Scenario: Fdroid has no config restrictions
+
+- **WHEN** user edits any profile on fdroid
+- **THEN** the Sync enabled toggle and save operate normally regardless of index
 
 ### Requirement: Subscription expiration pauses extra profiles
 

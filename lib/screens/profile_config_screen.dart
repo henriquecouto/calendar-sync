@@ -4,6 +4,8 @@ import '../settings/profile_service.dart';
 import '../calendar/calendar_service.dart';
 import '../background/sync_scheduler.dart';
 import '../widgets/empty_state.dart';
+import '../main.dart';
+import 'upsell_bottom_sheet.dart';
 
 class ProfileConfigScreen extends StatefulWidget {
   final String? profileId;
@@ -34,6 +36,7 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
   bool _copyDescription = false;
   bool _copyLocation = false;
   String? _profileId;
+  int? _profileIndex;
 
   List<_CalendarItem> _calendars = [];
   bool _loading = true;
@@ -50,10 +53,20 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
 
   bool get _isEditing => _profileId != null;
 
+  bool get _enableRestricted =>
+      _isEditing && _profileIndex != null &&
+      _profileIndex! > 0 &&
+      !subscriptionService.isSubscribed;
+
+  bool get _canSyncBeEnabled => !_enableRestricted;
+
   Future<void> _load() async {
     final calendars = await _calendarService.listCalendars();
 
     if (_isEditing) {
+      final profiles = await _profileService.listProfiles();
+      _profileIndex = profiles.indexWhere((p) => p.id == _profileId);
+
       final profile = await _profileService.getProfile(_profileId!);
       if (profile != null) {
         _sourceCalendarId = profile.sourceCalendarId;
@@ -156,7 +169,7 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
           targetCalendarId: _targetCalendarId,
           eventName: eventName,
           intervalMinutes: _intervalMinutes,
-          enabled: _syncEnabled,
+          enabled: _enableRestricted ? false : _syncEnabled,
           copyDescription: _copyDescription,
           copyLocation: _copyLocation,
         ));
@@ -177,6 +190,15 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
     await SyncScheduler.updatePeriodicTask();
 
     if (mounted) Navigator.pop(context, true);
+  }
+
+  Future<void> _showUpsell() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const UpsellBottomSheet(),
+    );
   }
 
   Future<void> _delete() async {
@@ -327,10 +349,21 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
                             title: const Text('Sync enabled'),
+                            subtitle: _enableRestricted
+                                ? Text(
+                                    'Only your first profile can be enabled on the free tier',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.outline,
+                                    ),
+                                  )
+                                : null,
                             value: _syncEnabled,
-                            onChanged: (val) {
-                              setState(() => _syncEnabled = val);
-                            },
+                            onChanged: _canSyncBeEnabled
+                                ? (val) {
+                                    setState(() => _syncEnabled = val);
+                                  }
+                                : (_) => _showUpsell(),
                           ),
                         ],
                       ),

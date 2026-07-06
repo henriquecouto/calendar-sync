@@ -23,7 +23,7 @@
 ## 4. Freemium entitlement logic
 
 - [x] 4.1 Add `canCreateProfile(profileCount)` helper that returns `true` if subscribed OR profile count < 1 (gplay only, always true on fdroid)
-- [x] 4.2 Add `canEnableProfile(enabledCount, isTurningOn)` helper that returns `true` if subscribed OR enabled count < 1 OR is turning off
+- [x] 4.2 Refactor `canEnableProfile(profileIndex, isTurningOn)` to use profile index instead of enabled count — only index 0 is free; index > 0 requires subscription
 - [x] 4.3 Implement subscription expiration handler: when `isSubscribed` goes `true → false`, persist currently-enabled profile IDs, then disable all profiles beyond the first
 - [x] 4.4 Implement subscription restoration handler: when `isSubscribed` goes `false → true`, re-enable profiles that were active before expiration
 - [x] 4.5 Wire expiration/restoration checks into the app-resume lifecycle listener
@@ -31,9 +31,10 @@
 ## 5. Entitlement enforcement in UI
 
 - [x] 5.1 Wire `canCreateProfile` check into DashboardScreen FAB `onPressed` — show upsell bottom sheet when blocked
-- [x] 5.2 Wire `canEnableProfile` check into DashboardScreen profile toggle `onChanged` — show upsell bottom sheet when blocked, leave toggle OFF
+- [x] 5.2 Wire `canEnableProfile(index)` check into DashboardScreen profile toggle `onChanged` — show upsell bottom sheet when blocked for index > 0
 - [x] 5.3 Add `in_app_purchase` dependency to `pubspec.yaml`
 - [x] 5.4 Add subscription screen entry point to `DashboardScreen` navigation (gplay only — hide on fdroid)
+- [x] 5.5 Wire `canEnableProfile(index)` enforcement into ProfileConfigScreen: disable the Sync enabled switch for non-first profiles; force `enabled: false` on save when profile index > 0 and not subscribed
 
 ## 6. Subscription UI screens
 

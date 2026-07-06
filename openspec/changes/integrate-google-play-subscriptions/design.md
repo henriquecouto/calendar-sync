@@ -68,21 +68,24 @@ The Flutter ecosystem provides the `in_app_purchase` package (first-party, Googl
 
 **Risk**: A rooted device could theoretically spoof purchases locally. Mitigation: Acceptable for MVP; add server-side verification in a future iteration if fraud becomes a concern.
 
-### Decision 5: Freemium model — 1 profile free, multi-profile requires subscription
+### Decision 5: Freemium model — 1 profile free (fixed first), multi-profile requires subscription
 
-**Choice**: The premium feature gated by subscription is **creating or enabling more than 1 sync profile**. The free tier allows 1 concurrent profile (deleting it frees the slot). Two enforcement points exist:
+**Choice**: The premium feature gated by subscription is **creating or enabling more than 1 sync profile**. The free tier allows exactly 1 profile — the first one in the ordered list (by name). Enforcement points:
 
 1. **Create Profile FAB on DashboardScreen** — before navigating to ProfileConfigScreen, check `isSubscribed || profiles.length < 1`. If blocked, show the upsell bottom sheet.
-2. **Enable toggle on each profile** — when user tries to toggle a profile ON, check `isSubscribed || enabledCount < 1 || isTurningOff`. If blocked (turning ON a second profile without subscription), show the upsell bottom sheet.
+2. **Enable toggle on DashboardScreen** — when user tries to toggle a profile ON, check `isSubscribed || profileIndex == 0`. Only the first profile (index 0) is free; any other profile requires a subscription. If blocked, show the upsell bottom sheet.
+3. **ProfileConfigScreen** — when editing a non-first profile without subscription, disable the Sync enabled switch and force `enabled: false` on save. This prevents bypassing the dashboard enforcement by editing the profile directly.
 
 Editing and deleting existing profiles is always free.
 
+**Why fixed index instead of enabled count**: The previous model counted enabled profiles and allowed up to 1 at a time, but the user could disable profile A and enable profile B — effectively choosing which profile gets the free slot. The fixed-index model prevents this: only the first profile in the alphabetical list is free. If the subscription expires and the user has profiles A, B, C, only A can be enabled; B and C require a subscription. This is simpler to explain ("your first profile is free") and harder to game.
+
 **Subscription expiration behavior**:
-- When `isSubscribed` transitions from `true` to `false`, iterate all profiles and disable (`enabled = false`) all but the first one (keeping the first profile's enabled state unchanged).
+- When `isSubscribed` transitions from `true` to `false`, iterate all profiles and disable (`enabled = false`) all but the first one (index 0), keeping its enabled state unchanged.
 - Before disabling, persist which profiles were previously enabled so they can be restored on re-subscription.
 - When `isSubscribed` transitions from `false` to `true`, re-enable profiles that were active before expiration.
 
-**Rationale**: Concrete, testable, and transparent to the user. The user gets a clear value proposition: "one sync pair is free, more requires a subscription." The auto-restore on re-subscription avoids frustrating users who had to manually re-enable multiple profiles.
+**Rationale**: Concrete, testable, and transparent to the user. The user gets a clear value proposition: "one sync pair is free, more requires a subscription." The fixed-index approach prevents the user from cycling the free slot across profiles. The auto-restore on re-subscription avoids frustrating users who had to manually re-enable multiple profiles.
 
 ### Decision 6: Upsell presentation
 
