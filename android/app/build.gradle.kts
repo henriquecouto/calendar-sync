@@ -135,8 +135,26 @@ tasks.register("injectSoftDeletePlugin") {
     }
 }
 
+tasks.register("stripBillingPlugin") {
+    doLast {
+        val isGplayBuild = gradle.startParameter.taskNames.any {
+            it.contains("Gplay", ignoreCase = true)
+        }
+        if (isGplayBuild) return@doLast
+
+        val registrantFile = file("src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java")
+        if (!registrantFile.exists()) return@doLast
+
+        var content = registrantFile.readText()
+        val pattern = Regex("""\s*try\s*\{\s*flutterEngine\.getPlugins\(\)\.add\(new io\.flutter\.plugins\.inapppurchase\.InAppPurchasePlugin\(\)\);\s*\}\s*catch\s*\(Exception e\)\s*\{[^}]*\}\s*""")
+        content = pattern.replace(content, "")
+        registrantFile.writeText(content)
+    }
+}
+
 tasks.whenTaskAdded {
     if (name.startsWith("compile") && name.endsWith("JavaWithJavac")) {
         dependsOn("injectSoftDeletePlugin")
+        dependsOn("stripBillingPlugin")
     }
 }
