@@ -11,6 +11,11 @@ import 'calendar/calendar_service.dart';
 import 'screens/dashboard_screen.dart';
 import 'permissions/permission_gate.dart';
 import 'background/sync_task.dart';
+import 'subscriptions/subscription_service.dart';
+import 'subscriptions/entitlement.dart';
+import 'settings/profile_service.dart';
+
+final subscriptionService = createSubscriptionService();
 
 Future<void> _migrateIfNeeded() async {
   final prefs = await SharedPreferences.getInstance();
@@ -58,6 +63,15 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Workmanager().initialize(callbackDispatcher);
   await _migrateIfNeeded();
+  await subscriptionService.initialize();
+  subscriptionService.onStatusChanged = (isSubscribed) {
+    final profileService = ProfileService();
+    if (isSubscribed) {
+      handleSubscriptionRestored(profileService);
+    } else {
+      handleSubscriptionExpired(profileService);
+    }
+  };
   runApp(const CalendarSyncApp());
 }
 
