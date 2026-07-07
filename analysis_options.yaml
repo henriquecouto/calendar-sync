@@ -26,10 +26,3 @@ linter:
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
-
-analyzer:
-  exclude:
-    - lib/subscriptions/gplay_subscription_service.dart
-    - lib/subscriptions/subscription_service_gplay.dart
-    - lib/screens/subscription_screen_gplay.dart
-    - lib/screens/upsell_bottom_sheet_gplay.dart
