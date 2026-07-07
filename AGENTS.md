@@ -34,8 +34,8 @@ The app has two product flavors:
 The `fdroid` flavor is the default (no `--flavor` needed). The `gplay` flavor requires `--flavor gplay`:
 
 ```bash
-flutter build apk --release --flavor gplay --dart-define=SUBSCRIPTIONS_ENABLED=true          # gplay APK
-flutter build appbundle --release --flavor gplay --dart-define=SUBSCRIPTIONS_ENABLED=true    # gplay AAB (for Play Store)
+scripts/gplay_build.sh "flutter build apk --release --flavor gplay --dart-define=SUBSCRIPTIONS_ENABLED=true"          # gplay APK
+scripts/gplay_build.sh "flutter build appbundle --release --flavor gplay --dart-define=SUBSCRIPTIONS_ENABLED=true"    # gplay AAB (for Play Store)
 flutter build apk --release --split-per-abi         # fdroid per-ABI APKs
 ```
 

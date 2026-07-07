@@ -91,8 +91,6 @@ androidComponents {
     onVariants { variant ->
         if (variant.flavorName == "gplay") {
             variant.packaging.resources.excludes.add("**/adi-registration.properties")
-        } else {
-            variant.packaging.resources.excludes.add("**/billing.properties")
         }
     }
 }
@@ -137,44 +135,8 @@ tasks.register("injectSoftDeletePlugin") {
     }
 }
 
-tasks.register("stripBillingPlugin") {
-    doLast {
-        val isGplayBuild = gradle.startParameter.taskNames.any {
-            it.contains("Gplay", ignoreCase = true)
-        }
-        if (isGplayBuild) return@doLast
-
-        val registrantFile = file("src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java")
-        if (!registrantFile.exists()) return@doLast
-
-        var content = registrantFile.readText()
-        val pattern = Regex("""\s*try\s*\{\s*flutterEngine\.getPlugins\(\)\.add\(new io\.flutter\.plugins\.inapppurchase\.InAppPurchasePlugin\(\)\);\s*\}\s*catch\s*\(Exception e\)\s*\{[^}]*\}\s*""")
-        content = pattern.replace(content, "")
-        registrantFile.writeText(content)
-    }
-}
-
-tasks.register("stripUrlLauncherPlugin") {
-    doLast {
-        val isGplayBuild = gradle.startParameter.taskNames.any {
-            it.contains("Gplay", ignoreCase = true)
-        }
-        if (isGplayBuild) return@doLast
-
-        val registrantFile = file("src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java")
-        if (!registrantFile.exists()) return@doLast
-
-        var content = registrantFile.readText()
-        val pattern = Regex("""\s*try\s*\{\s*flutterEngine\.getPlugins\(\)\.add\(new io\.flutter\.plugins\.urllauncher\.UrlLauncherPlugin\(\)\);\s*\}\s*catch\s*\(Exception e\)\s*\{[^}]*\}\s*""")
-        content = pattern.replace(content, "")
-        registrantFile.writeText(content)
-    }
-}
-
 tasks.whenTaskAdded {
     if (name.startsWith("compile") && name.endsWith("JavaWithJavac")) {
         dependsOn("injectSoftDeletePlugin")
-        dependsOn("stripBillingPlugin")
-        dependsOn("stripUrlLauncherPlugin")
     }
 }
