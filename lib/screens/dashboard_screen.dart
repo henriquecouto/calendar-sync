@@ -73,8 +73,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _calendarNames.containsKey(calendarId);
   }
 
-  Future<void> _syncProfile(SyncProfile profile) async {
+  Future<void> _syncProfile(SyncProfile profile, int profileIndex) async {
     if (!profile.enabled) return;
+    if (!canProfileSync(subscriptionService.isSubscribed, profileIndex)) return;
     final sourceId = profile.sourceCalendarId;
     final targetId = profile.targetCalendarId;
     final syncName = profile.eventName.trim();
@@ -108,9 +109,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _syncAll() async {
-    for (final profile in _profiles) {
+    for (final entry in _profiles.asMap().entries) {
+      final profile = entry.value;
       if (profile.enabled) {
-        await _syncProfile(profile);
+        await _syncProfile(profile, entry.key);
       }
     }
   }
@@ -388,7 +390,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   icon: Icon(Icons.sync,
                                       color: Theme.of(context).colorScheme.primary),
                                   tooltip: 'Sync now',
-                                  onPressed: () => _syncProfile(profile),
+                                  onPressed: () => _syncProfile(profile, index),
                                   style: IconButton.styleFrom(
                                     padding: EdgeInsets.zero,
                                     minimumSize: const Size(36, 36),

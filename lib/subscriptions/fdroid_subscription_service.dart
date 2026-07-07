@@ -1,9 +1,13 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'subscription_service.dart';
 
 class FdroidSubscriptionService extends SubscriptionService {
   @override
   Future<void> initialize() async {
     entitled = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('subscription_entitled', true);
   }
 
   @override

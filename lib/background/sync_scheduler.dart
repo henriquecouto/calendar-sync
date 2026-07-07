@@ -1,10 +1,18 @@
 import 'package:workmanager/workmanager.dart';
 import '../settings/profile_service.dart';
+import '../main.dart';
+import '../subscriptions/entitlement.dart';
 
 class SyncScheduler {
   static Future<void> updatePeriodicTask() async {
     final profileService = ProfileService();
-    final profiles = await profileService.listEnabledProfiles();
+    final allProfiles = await profileService.listProfiles();
+    final profiles = allProfiles.asMap().entries
+        .where((entry) =>
+            entry.value.enabled &&
+            canProfileSync(subscriptionService.isSubscribed, entry.key))
+        .map((entry) => entry.value)
+        .toList();
 
     if (profiles.isEmpty) {
       await Workmanager().cancelAll();
