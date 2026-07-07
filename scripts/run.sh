@@ -5,7 +5,7 @@ FLAVOR="${1:-}"
 
 if [ "$FLAVOR" != "fdroid" ] && [ "$FLAVOR" != "gplay" ]; then
     echo "Usage: $0 <fdroid|gplay> [build command...]" >&2
-    echo "  Default command: flutter run --debug" >&2
+    echo "  fdroid: flutter run --debug" >&2
     echo "  gplay: flutter run --debug --flavor gplay --dart-define=SUBSCRIPTIONS_ENABLED=true" >&2
     exit 1
 fi
