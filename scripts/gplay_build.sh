@@ -20,14 +20,27 @@ cleanup() {
             cp "$backup" "$target"
         fi
     done
+    if [ -f "$BACKUP_DIR/pubspec.yaml" ]; then
+        cp "$BACKUP_DIR/pubspec.yaml" pubspec.yaml
+    fi
+    if [ -f "$BACKUP_DIR/pubspec.lock" ]; then
+        cp "$BACKUP_DIR/pubspec.lock" pubspec.lock
+    fi
+    if [ -f "$BACKUP_DIR/analysis_options.yaml" ]; then
+        cp "$BACKUP_DIR/analysis_options.yaml" analysis_options.yaml
+    fi
     rm -rf "$BACKUP_DIR"
 }
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 if [ ! -f "$OVERLAY" ]; then
     echo "ERROR: $OVERLAY not found" >&2
     exit 1
 fi
+
+cp pubspec.yaml "$BACKUP_DIR/pubspec.yaml"
+cp pubspec.lock "$BACKUP_DIR/pubspec.lock"
+cp analysis_options.yaml "$BACKUP_DIR/analysis_options.yaml"
 
 for pair in "${GPLAY_FILES[@]}"; do
     source_file="${pair%%:*}"
