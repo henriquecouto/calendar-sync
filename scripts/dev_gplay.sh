@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+cd "$(dirname "$0")/.."
+
 OVERLAY="pubspec_gplay.yaml"
 
 GPLAY_FILES=(
