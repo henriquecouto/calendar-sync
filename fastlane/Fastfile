@@ -5,7 +5,7 @@ platform :android do
   lane :deploy do |options|
     track = options[:track] || 'internal'
 
-    sh("scripts/gplay_build.sh", "flutter build appbundle --release --flavor gplay --dart-define=SUBSCRIPTIONS_ENABLED=true")
+    sh("flutter", "build", "appbundle", "--release", "--flavor", "gplay", "--dart-define=SUBSCRIPTIONS_ENABLED=true")
 
     supply(
       track: track,
