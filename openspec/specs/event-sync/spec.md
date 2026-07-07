@@ -44,6 +44,18 @@ The system SHALL create a target event using the profile's configured sync event
 🔃 Automatically created by CalSync
 ```
 
+When the profile's `copyDescription` field is `true` and the source event has a non-null, non-empty description, the source event's description SHALL be prepended before the original title, separated by a blank line:
+
+```
+<source description>
+
+<original title>
+---
+🔃 Automatically created by CalSync
+```
+
+When the profile's `copyLocation` field is `true` and the source event has a non-null location, the target event SHALL be created with the source event's location. When `copyLocation` is `false` or the source location is null, the target event SHALL have no location.
+
 If the source event is recurring (`isRecurring == true`), the target event SHALL also be created as recurring, copying the source event's `recurrenceRule`.
 
 #### Scenario: Synced event uses custom name and embeds sync marker
@@ -65,6 +77,63 @@ If the source event is recurring (`isRecurring == true`), the target event SHALL
   ---
   🔃 Automatically created by CalSync
   ```
+
+#### Scenario: Copy description disabled uses standard format
+
+- **WHEN** the profile has `copyDescription: false`
+- **AND** the source event has description "Q3 planning notes"
+- **THEN** the target event description SHALL NOT include "Q3 planning notes"
+- **AND** the description SHALL be the standard format (original title + marker)
+
+#### Scenario: Copy description enabled prepends source description
+
+- **WHEN** the profile has `copyDescription: true`
+- **AND** the source event has title "Doctor Appointment" and description "Remember to bring documents"
+- **THEN** the target event description SHALL be:
+  ```
+  Remember to bring documents
+
+  Doctor Appointment
+  ---
+  🔃 Automatically created by CalSync
+  ```
+
+#### Scenario: Copy description enabled with null source description
+
+- **WHEN** the profile has `copyDescription: true`
+- **AND** the source event has `description: null`
+- **THEN** the target event description SHALL be the standard format (no empty block prepended)
+
+#### Scenario: Copy description enabled with empty source description
+
+- **WHEN** the profile has `copyDescription: true`
+- **AND** the source event has `description: ""`
+- **THEN** the target event description SHALL be the standard format (no empty block prepended)
+
+#### Scenario: Copy location enabled with non-null location
+
+- **WHEN** the profile has `copyLocation: true`
+- **AND** the source event has location "Conference Room A"
+- **THEN** the target event SHALL be created with `location: "Conference Room A"`
+
+#### Scenario: Copy location disabled with non-null location
+
+- **WHEN** the profile has `copyLocation: false`
+- **AND** the source event has location "Conference Room A"
+- **THEN** the target event SHALL be created with `location: null` (or absent)
+
+#### Scenario: Copy location enabled with null location
+
+- **WHEN** the profile has `copyLocation: true`
+- **AND** the source event has `location: null`
+- **THEN** the target event SHALL be created with `location: null` (or absent)
+
+#### Scenario: Both copy options enabled
+
+- **WHEN** the profile has `copyDescription: true` and `copyLocation: true`
+- **AND** the source event has description "Q3 notes" and location "Room B"
+- **THEN** the target event description SHALL include "Q3 notes" prepended
+- **AND** the target event location SHALL be "Room B"
 
 #### Scenario: Recurring source creates recurring target
 - **WHEN** the source event has `isRecurring: true`, `eventId: "100"`, `instanceId: "100"`, and `recurrenceRule: "FREQ=WEEKLY;BYDAY=MO"`
