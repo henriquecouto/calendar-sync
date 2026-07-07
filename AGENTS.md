@@ -39,6 +39,25 @@ scripts/gplay_build.sh "flutter build appbundle --release --flavor gplay --dart-
 flutter build apk --release --split-per-abi         # fdroid per-ABI APKs
 ```
 
+### Preparing a flavor for development
+
+The default `pubspec.yaml` does **not** include gplay-only dependencies (`in_app_purchase`, `url_launcher`). To develop the gplay flavor, you must switch to the gplay pubspec first:
+
+```bash
+scripts/dev_gplay.sh       # switch to gplay pubspec + deps (permanent until reverted)
+flutter run --debug --flavor gplay --dart-define=SUBSCRIPTIONS_ENABLED=true
+```
+
+To go back:
+
+```bash
+scripts/dev_fdroid.sh       # revert to fdroid pubspec
+```
+
+For CI / one-shot builds, use `scripts/gplay_build.sh` which handles swap + build + restore automatically.
+
+```
+
 ## Release
 
 Releases are managed via GitHub Actions (`.github/workflows/release.yml`):
