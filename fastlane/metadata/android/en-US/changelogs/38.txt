@@ -1,0 +1,2 @@
+- fix: disable extra profiles on subscription expiry (cold start detection) (#49)
+- chore: archive 3 completed changes and sync specs to main
