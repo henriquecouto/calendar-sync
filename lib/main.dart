@@ -64,6 +64,10 @@ void main() async {
   await Workmanager().initialize(callbackDispatcher);
   await _migrateIfNeeded();
   await subscriptionService.initialize();
+  if (!subscriptionService.isSubscribed) {
+    final profileService = ProfileService();
+    await handleSubscriptionExpired(profileService);
+  }
   subscriptionService.onStatusChanged = (isSubscribed) {
     final profileService = ProfileService();
     if (isSubscribed) {

@@ -20,6 +20,8 @@ const _preExpiryEnabledProfilesKey = 'pre_expiry_enabled_profiles';
 
 const subscriptionEntitledKey = 'subscription_entitled';
 
+const lastEntitlementCheckKey = 'last_entitlement_check';
+
 bool canProfileSync(bool isSubscribed, int profileIndex) {
   return isSubscribed || profileIndex == 0;
 }
