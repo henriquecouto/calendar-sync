@@ -30,7 +30,7 @@ When a previously synced source event no longer appears in the source calendar, 
 - **AND** mappings for the same event under different profiles are unaffected
 
 ### Requirement: Periodic fallback sync
-The system SHALL maintain a single periodic background task as a safety net. When the task fires, it SHALL iterate over all enabled profiles and run the sync engine for each, provided each profile has the required configuration and permissions. The task interval SHALL be the minimum interval among all enabled profiles. When no profiles are enabled, the periodic task SHALL be cancelled. This catches any changes missed by the ContentObserver.
+The system SHALL maintain a single periodic background task as a safety net. When the task fires, it SHALL first refresh the subscription entitlement from Play Store if more than 24 hours have elapsed since the last check, then iterate over all enabled profiles and run the sync engine for each, provided each profile has the required configuration and permissions. The task interval SHALL be the minimum interval among all enabled AND entitled profiles. When no profiles are enabled and entitled, the periodic task SHALL be cancelled. This catches any changes missed by the ContentObserver.
 
 #### Scenario: Fallback syncs all enabled profiles
 - **WHEN** the periodic task fires and 3 profiles are enabled
@@ -53,6 +53,13 @@ The system SHALL maintain a single periodic background task as a safety net. Whe
 - **THEN** that profile SHALL be skipped silently without error
 - **AND** the status table SHALL NOT log an error for that profile
 - **AND** remaining profiles SHALL still be synced
+
+#### Scenario: Entitlement refreshed on 24-hour TTL before sync
+
+- **WHEN** the periodic task fires and more than 24 hours have elapsed since the last entitlement check
+- **THEN** `queryBackgroundEntitlement()` is called before iterating profiles
+- **AND** the result is persisted to SharedPreferences
+- **AND** the `last_entitlement_check` timestamp is updated
 
 ### Requirement: Background task is resilient
 The system SHALL handle errors during any background sync path gracefully. An error in one profile's sync SHALL NOT prevent other profiles from syncing. Missing permissions, unconfigured settings, deleted calendars, or plugin errors for a specific profile SHALL cause that profile to be skipped silently without affecting other profiles or future runs.

@@ -4,6 +4,10 @@ SubscriptionService createSubscriptionService() {
   return FdroidSubscriptionService();
 }
 
+Future<bool> queryBackgroundEntitlement() async {
+  return true;
+}
+
 class SubscriptionProduct {
   final String id;
   final String title;

@@ -6,6 +6,7 @@ import '../sync/sync_engine.dart';
 import '../calendar/calendar_service.dart';
 import '../permissions/permission_service.dart';
 import '../subscriptions/entitlement.dart';
+import '../subscriptions/subscription_service.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -26,7 +27,21 @@ void callbackDispatcher() {
       }
 
       final prefs = await SharedPreferences.getInstance();
-      final isSubscribed = prefs.getBool(subscriptionEntitledKey) ?? true;
+
+      final lastCheckStr = prefs.getString(lastEntitlementCheckKey);
+      final lastCheck = lastCheckStr != null ? DateTime.tryParse(lastCheckStr) : null;
+      final shouldRefresh = lastCheck == null ||
+          DateTime.now().difference(lastCheck).inHours >= 24;
+
+      bool isSubscribed;
+      if (shouldRefresh) {
+        isSubscribed = await queryBackgroundEntitlement();
+        await prefs.setBool(subscriptionEntitledKey, isSubscribed);
+        await prefs.setString(
+            lastEntitlementCheckKey, DateTime.now().toIso8601String());
+      } else {
+        isSubscribed = prefs.getBool(subscriptionEntitledKey) ?? true;
+      }
 
       final engine = SyncEngine(CalendarService(), MappingDatabase());
 
