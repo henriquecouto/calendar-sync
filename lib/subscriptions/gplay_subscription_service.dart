@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'subscription_service.dart';
 
@@ -21,6 +22,9 @@ class GplaySubscriptionService extends SubscriptionService
   Future<void> initialize() async {
     if (_initialized) return;
     _initialized = true;
+
+    final prefs = await SharedPreferences.getInstance();
+    entitled = prefs.getBool('subscription_entitled') ?? false;
 
     final available = await _iap.isAvailable();
     if (!available) return;
@@ -123,6 +127,9 @@ class GplaySubscriptionService extends SubscriptionService
     final previous = entitled;
     entitled = hasActiveSub;
 
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('subscription_entitled', entitled);
+
     if (previous != entitled) {
       onStatusChanged?.call(entitled);
     }
@@ -138,6 +145,9 @@ class GplaySubscriptionService extends SubscriptionService
             final previous = entitled;
             entitled = true;
             if (previous != entitled) {
+              SharedPreferences.getInstance().then((prefs) {
+                prefs.setBool('subscription_entitled', entitled);
+              });
               onStatusChanged?.call(entitled);
             }
           }

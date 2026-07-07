@@ -5,6 +5,7 @@ import '../sync/mapping_database.dart';
 import '../sync/sync_engine.dart';
 import '../calendar/calendar_service.dart';
 import '../permissions/permission_service.dart';
+import '../subscriptions/entitlement.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -24,9 +25,18 @@ void callbackDispatcher() {
         return true;
       }
 
+      final prefs = await SharedPreferences.getInstance();
+      final isSubscribed = prefs.getBool(subscriptionEntitledKey) ?? true;
+
       final engine = SyncEngine(CalendarService(), MappingDatabase());
 
-      for (final profile in profiles) {
+      for (int i = 0; i < profiles.length; i++) {
+        final profile = profiles[i];
+
+        if (!canProfileSync(isSubscribed, i)) {
+          continue;
+        }
+
         final sourceId = profile.sourceCalendarId;
         final targetId = profile.targetCalendarId;
         final syncName = profile.eventName.trim();

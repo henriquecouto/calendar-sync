@@ -149,7 +149,7 @@ The system SHALL load all profiles on demand. The dashboard SHALL display each p
 - **AND** the user SHALL be able to edit the profile to select a replacement calendar or delete the profile manually
 
 ### Requirement: Enable and disable individual profiles
-Each profile SHALL have an independent enabled/disabled toggle. Disabled profiles SHALL be skipped during both manual and background sync. The toggle SHALL be changeable from both the profile config screen and the profile card on the dashboard. An empty event name SHALL NOT cause a profile to be skipped — an empty event name is a valid configuration meaning "use original titles."
+Each profile SHALL have an independent enabled/disabled toggle. Disabled profiles SHALL be skipped during both manual and background sync. The toggle SHALL be changeable from both the profile config screen and the profile card on the dashboard. An empty event name SHALL NOT cause a profile to be skipped — an empty event name is a valid configuration meaning "use original titles." Additionally, when executing any sync operation, the system SHALL verify that the profile is entitled to sync based on subscription status. Extra profiles (index >= 1) SHALL be skipped for unsubscribed users even if they are marked as enabled.
 
 #### Scenario: Disable a profile from dashboard
 - **WHEN** the user toggles a profile card's enabled switch to off
@@ -164,6 +164,16 @@ Each profile SHALL have an independent enabled/disabled toggle. Disabled profile
 - **WHEN** a profile has an empty event name, is enabled, and a sync is triggered
 - **THEN** the profile SHALL execute a sync cycle normally using source event original titles
 
+#### Scenario: Manual sync skips enabled extra profile when unsubscribed
+- **WHEN** the user taps the sync button on a profile at index 1 that is enabled, and the user is not subscribed
+- **THEN** the profile SHALL NOT execute a sync cycle despite being enabled
+- **AND** no error SHALL be logged for this skipped profile
+
+#### Scenario: Sync All skips enabled extra profiles when unsubscribed
+- **WHEN** Sync All is triggered, the user is not subscribed, profile 0 is enabled, and profile 1 is enabled
+- **THEN** only profile 0 SHALL execute a sync cycle; profile 1 SHALL be skipped
+- **AND** profile 1's skip SHALL NOT produce an error entry in the status table
+
 ### Requirement: Profile uniqueness constraint
 The system SHALL prevent creating a profile with the same source calendar ID and target calendar ID combination as an existing profile. This constraint prevents duplicate target events (two profiles syncing the same source→target pair would each create a target event for every source event). This constraint is separate from the `sync_created_events` loop-prevention table — the constraint blocks duplicate profiles, the table blocks sync loops between bidirectional profiles.
 
@@ -177,7 +187,7 @@ The system SHALL prevent creating a profile with the same source calendar ID and
 - **THEN** the new profile SHALL be accepted (different direction is a different pair)
 
 ### Requirement: Profile-based Workmanager interval
-The system SHALL manage the periodic background task interval based on all enabled profiles. The task SHALL use the minimum interval among enabled profiles. If no profiles are enabled, the periodic task SHALL be cancelled.
+The system SHALL manage the periodic background task interval based on all enabled AND entitled profiles. The task SHALL use the minimum interval among enabled profiles that are entitled to sync (index 0 when unsubscribed, or all profiles when subscribed). If no profiles are both enabled and entitled to sync, the periodic task SHALL be cancelled.
 
 #### Scenario: Single profile determines interval
 - **WHEN** one profile is enabled with interval 30 minutes
@@ -194,3 +204,7 @@ The system SHALL manage the periodic background task interval based on all enabl
 #### Scenario: Interval updates when profiles change
 - **WHEN** the set of enabled profiles or their intervals change
 - **THEN** the periodic task interval SHALL be updated within 5 seconds to reflect the new minimum
+
+#### Scenario: Unsubscribed extra profiles excluded from interval calculation
+- **WHEN** the user is not subscribed, profile 0 has interval 60 minutes, and profile 1 has interval 15 minutes
+- **THEN** the periodic task SHALL be registered with a 60-minute frequency (profile 1's interval is ignored)

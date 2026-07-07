@@ -18,6 +18,12 @@ bool canEnableProfile(
 
 const _preExpiryEnabledProfilesKey = 'pre_expiry_enabled_profiles';
 
+const subscriptionEntitledKey = 'subscription_entitled';
+
+bool canProfileSync(bool isSubscribed, int profileIndex) {
+  return isSubscribed || profileIndex == 0;
+}
+
 Future<void> handleSubscriptionExpired(ProfileService profileService) async {
   final profiles = await profileService.listProfiles();
   if (profiles.length <= 1) return;
