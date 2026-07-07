@@ -27,10 +27,6 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
-  url_launcher: ^6.3.0
-  in_app_purchase_platform_interface: ^1.4.1
-  in_app_purchase_android: ^0.5.1
-  in_app_purchase: ^3.3.0
   flutter:
     sdk: flutter
 
