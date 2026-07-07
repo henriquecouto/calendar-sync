@@ -1,6 +1,15 @@
 import 'fdroid_subscription_service.dart';
+import 'gplay_subscription_service.dart';
+
+const _subscriptionsEnabled = bool.fromEnvironment(
+  'SUBSCRIPTIONS_ENABLED',
+  defaultValue: false,
+);
 
 SubscriptionService createSubscriptionService() {
+  if (_subscriptionsEnabled) {
+    return GplaySubscriptionService();
+  }
   return FdroidSubscriptionService();
 }
 
