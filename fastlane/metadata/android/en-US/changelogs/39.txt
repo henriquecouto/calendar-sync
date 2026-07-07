@@ -1,0 +1,1 @@
+- fix: enforce profile disable on every startup and refresh entitlement in background (#50)
