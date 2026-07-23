@@ -1,1 +1,1 @@
-CalSync
+CalSync - Local Calendar Sync

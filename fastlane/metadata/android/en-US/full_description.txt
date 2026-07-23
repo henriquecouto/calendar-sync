@@ -1,13 +1,24 @@
-Calendar Sync automatically copies events from one local calendar to another on your device. When an event appears in your source calendar, a corresponding event is created in your target calendar using a name you choose.
+CalSync is a free and open source alternative to OneCal, CalendarBridge, and Reclaim.ai. It syncs and merges events between local device calendars — no cloud servers, no accounts, no subscription.
 
-Perfect for sharing availability across personal and work calendars, or keeping multiple calendars in sync without manual entry.
+When an event appears in one calendar, CalSync automatically copies it to another using a name you choose. All syncing happens directly on your device. Your calendar data never leaves your phone.
 
-Features:
-- Select any local device calendar as source or target
-- Customize the synced event name (e.g., "Busy")
-- Original event title is preserved in the description
-- Sync runs automatically in the background at your chosen interval
-- Changes to already-synced events are detected and propagated
-- Deletions in the source calendar are mirrored to the target
+⭐ FREE & OPEN SOURCE — No subscription, no hidden costs, no ads
+📱 WORKS OFFLINE — No internet connection required, ever
+🔒 100% PRIVATE — Calendar data stays on your device, period
+👤 NO ACCOUNT — No signups, no logins, no personal info collected
+🔄 AUTOMATIC BACKGROUND SYNC — Detects calendar changes within seconds
+📝 CUSTOM EVENT NAMES — Choose what synced events are called (e.g. "Busy")
+📋 SYNC PREVIEW — See exactly what will change before it happens
+🗑️ DELETION MIRRORING — Remove an event from source, removed from target
+🔄 RECURRING EVENTS — Repeat events stay in sync automatically
+🎨 MATERIAL YOU — Adapts to your device's dynamic color theme
 
-No account required. All data stays on your device.
+Perfect if you need to:
+• Sync work and personal calendars to share availability
+• Prevent double-bookings across multiple calendars
+• Manage client calendars as a freelancer or consultant
+• Keep family calendars in sync without sharing login credentials
+
+If you're looking for a OneCal alternative, CalendarBridge alternative, or Reclaim.ai alternative — CalSync is the offline, private, and completely free solution.
+
+No ads. No tracking. No telemetry. Just calendar sync that works.
