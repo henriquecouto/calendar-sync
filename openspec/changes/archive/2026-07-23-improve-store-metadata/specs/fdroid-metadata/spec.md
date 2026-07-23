@@ -1,10 +1,4 @@
-# F-Droid Metadata
-
-## Purpose
-
-Provide structured store listing metadata following the Fastlane layout so that F-Droid (and optionally Google Play) can consume app title, descriptions, changelogs, and graphics.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: App title metadata file
 The system SHALL provide a `title.txt` file at `fastlane/metadata/android/en-US/title.txt` containing the application name and a keyword-dense subtitle, limited to 30 characters.
@@ -18,7 +12,7 @@ The system SHALL provide a `short_description.txt` file at `fastlane/metadata/an
 
 #### Scenario: Short description file is present
 - **WHEN** the repository is checked out
-- **THEN** `fastlane/metadata/android/en-US/short_description.txt` exists and contains "Sync local calendars offline. Free, open source, no account needed."
+- **THEN** `fastlane/metadata/android/en-US/short_description.txt` exists and contains "Sync & merge local calendars offline. Free, open source, no account needed."
 
 ### Requirement: Full description metadata file
 The system SHALL provide a `full_description.txt` file at `fastlane/metadata/android/en-US/full_description.txt` describing the app's functionality, competitive positioning, use cases, and unique selling points. The file SHALL be at least 4 sentences and SHALL name key SaaS competitors (OneCal, CalendarBridge, Reclaim.ai) to position CalSync as a free, open source alternative.
@@ -34,21 +28,3 @@ The system SHALL provide a `full_description.txt` file at `fastlane/metadata/and
 #### Scenario: Full description emphases offline privacy
 - **WHEN** the full description is read
 - **THEN** it explicitly states the app works offline, requires no internet connection, and keeps all calendar data on-device
-
-### Requirement: Changelog directory
-The system SHALL provide a `changelogs/` directory at `fastlane/metadata/android/en-US/changelogs/` for per-version changelog files named by version code (e.g., `1.txt`).
-
-#### Scenario: Changelog directory exists
-- **WHEN** the repository is checked out
-- **THEN** `fastlane/metadata/android/en-US/changelogs/` exists and is ready to accept per-version `.txt` files
-
-#### Scenario: No changelog for current version
-- **WHEN** a version code has no corresponding changelog file
-- **THEN** the absence is acceptable (F-Droid falls back to no changelog for that version)
-
-### Requirement: Graphics image directory
-The system SHALL provide an `images/` directory at `fastlane/metadata/android/en-US/images/` structured for store listing graphics including `icon.png`, `featureGraphic.png`, and phone screenshots.
-
-#### Scenario: Image directory scaffold exists
-- **WHEN** the repository is checked out
-- **THEN** `fastlane/metadata/android/en-US/images/` exists as a placeholder, ready for graphics to be added
