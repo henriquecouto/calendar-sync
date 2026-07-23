@@ -1,0 +1,2 @@
+- feat: improve store metadata for better search discoverability (#52)
+- Create PRIVACY_POLICY.md
