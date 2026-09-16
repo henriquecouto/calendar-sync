@@ -92,6 +92,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       syncEventName: syncName,
       copyDescription: profile.copyDescription,
       copyLocation: profile.copyLocation,
+      omitSourceTitle: profile.omitSourceTitle,
     );
 
 

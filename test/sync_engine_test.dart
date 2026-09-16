@@ -1,6 +1,7 @@
 import 'package:calendar_sync/calendar/calendar_service.dart';
 import 'package:calendar_sync/sync/mapping_database.dart';
 import 'package:calendar_sync/sync/sync_engine.dart';
+import 'package:crypto/crypto.dart';
 import 'package:device_calendar_plus/device_calendar_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -1724,6 +1725,327 @@ void main() {
     });
   });
 
+  group('omitSourceTitle', () {
+    final start = DateTime.utc(2027, 6, 1, 10, 0);
+    final end = DateTime.utc(2027, 6, 1, 11, 0);
+    const marker = '🔃 Automatically created by CalSync';
+    final expectedHash =
+        'de691f9d29a02d009e10def2bd0c4b8e7fe3eff4e0ef002eadbc329e27882333';
+
+    Event makeEvent(String id, String title) {
+      return Event(
+        eventId: id,
+        instanceId: id,
+        calendarId: sourceCalId,
+        title: title,
+        startDate: start,
+        endDate: end,
+        isAllDay: false,
+        availability: EventAvailability.busy,
+        status: EventStatus.none,
+        isRecurring: false,
+      );
+    }
+
+    test('create path with omitSourceTitle=true embeds SHA256, not plaintext title',
+        () async {
+      final srcEvent = makeEvent('src-priv-1', 'Doctor Appointment');
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => []);
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-priv-1'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-priv-1'))
+          .thenAnswer((_) async => false);
+      when(() => calendarService.createEvent(
+        targetCalId,
+        syncName,
+        start,
+        end,
+        description: '$expectedHash\n---\n$marker',
+        isAllDay: false,
+      )).thenAnswer((_) async => 'new-priv-1');
+      when(() => mappingDb.insertMapping(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        sourceEventId: 'src-priv-1',
+        targetCalendarId: targetCalId,
+        targetEventId: 'new-priv-1',
+        syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
+      )).thenAnswer((_) async {});
+      when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-priv-1'))
+          .thenAnswer((_) async {});
+
+      final result = await engine.runSync(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+        omitSourceTitle: true,
+      );
+
+      verify(() => calendarService.createEvent(
+        targetCalId,
+        syncName,
+        start,
+        end,
+        description: '$expectedHash\n---\n$marker',
+        isAllDay: false,
+      )).called(1);
+      expect(result.synced, ['src-priv-1']);
+    });
+
+    test('title change triggers update when omitSourceTitle=true', () async {
+      final srcEvent = makeEvent('src-priv-2', 'Doctor Visit');
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => [
+            {
+              'id': 1,
+              'profile_id': profileId,
+              'source_calendar_id': sourceCalId,
+              'source_event_id': 'src-priv-2',
+              'target_calendar_id': targetCalId,
+              'target_event_id': 'old-priv-2',
+              'synced_at': '2027-01-01T00:00:00Z',
+              'canonical_time': null,
+            }
+          ]);
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-priv-2'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-priv-2'))
+          .thenAnswer((_) async => true);
+      // Old target description contains the SHA256 of the OLD title, not the new one
+      final oldHash =
+          'de691f9d29a02d009e10def2bd0c4b8e7fe3eff4e0ef002eadbc329e27882333';
+      when(() => calendarService.getEvent('old-priv-2')).thenAnswer((_) async =>
+          Event(
+            eventId: 'old-priv-2',
+            instanceId: 'old-priv-2',
+            calendarId: targetCalId,
+            title: syncName,
+            description: '$oldHash\n---\n$marker',
+            startDate: start,
+            endDate: end,
+            isAllDay: false,
+            availability: EventAvailability.busy,
+            status: EventStatus.none,
+            isRecurring: false,
+          ));
+      // New title hash
+      final newHash =
+          sha256.convert('Doctor Visit'.codeUnits).toString();
+      when(() => calendarService.createEvent(
+        targetCalId,
+        syncName,
+        start,
+        end,
+        description: '$newHash\n---\n$marker',
+        isAllDay: false,
+      )).thenAnswer((_) async => 'new-priv-2');
+      when(() => calendarService.deleteEvent('old-priv-2'))
+          .thenAnswer((_) async => const CalendarDeleteResult(success: true));
+      when(() => mappingDb.deleteCreatedEvent(targetCalId, 'old-priv-2'))
+          .thenAnswer((_) async {});
+      when(() => mappingDb.insertMapping(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        sourceEventId: 'src-priv-2',
+        targetCalendarId: targetCalId,
+        targetEventId: 'new-priv-2',
+        syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
+      )).thenAnswer((_) async {});
+      when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-priv-2'))
+          .thenAnswer((_) async {});
+
+      final result = await engine.runSync(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+        omitSourceTitle: true,
+      );
+
+      verify(() => calendarService.createEvent(
+        targetCalId,
+        syncName,
+        start,
+        end,
+        description: '$newHash\n---\n$marker',
+        isAllDay: false,
+      )).called(1);
+      expect(result.updated, ['src-priv-2']);
+    });
+
+    test('toggling omitSourceTitle from false to true cleans up plaintext title',
+        () async {
+      final srcEvent = makeEvent('src-priv-3', 'Doctor Appointment');
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => [
+            {
+              'id': 2,
+              'profile_id': profileId,
+              'source_calendar_id': sourceCalId,
+              'source_event_id': 'src-priv-3',
+              'target_calendar_id': targetCalId,
+              'target_event_id': 'old-priv-3',
+              'synced_at': '2027-01-01T00:00:00Z',
+              'canonical_time': null,
+            }
+          ]);
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-priv-3'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-priv-3'))
+          .thenAnswer((_) async => true);
+      // Old target still has plaintext title (from omitSourceTitle=false era)
+      when(() => calendarService.getEvent('old-priv-3')).thenAnswer((_) async =>
+          Event(
+            eventId: 'old-priv-3',
+            instanceId: 'old-priv-3',
+            calendarId: targetCalId,
+            title: syncName,
+            description: 'Doctor Appointment\n---\n$marker',
+            startDate: start,
+            endDate: end,
+            isAllDay: false,
+            availability: EventAvailability.busy,
+            status: EventStatus.none,
+            isRecurring: false,
+          ));
+      when(() => calendarService.createEvent(
+        targetCalId,
+        syncName,
+        start,
+        end,
+        description: '$expectedHash\n---\n$marker',
+        isAllDay: false,
+      )).thenAnswer((_) async => 'new-priv-3');
+      when(() => calendarService.deleteEvent('old-priv-3'))
+          .thenAnswer((_) async => const CalendarDeleteResult(success: true));
+      when(() => mappingDb.deleteCreatedEvent(targetCalId, 'old-priv-3'))
+          .thenAnswer((_) async {});
+      when(() => mappingDb.insertMapping(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        sourceEventId: 'src-priv-3',
+        targetCalendarId: targetCalId,
+        targetEventId: 'new-priv-3',
+        syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
+      )).thenAnswer((_) async {});
+      when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-priv-3'))
+          .thenAnswer((_) async {});
+
+      final result = await engine.runSync(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+        omitSourceTitle: true,
+      );
+
+      verify(() => calendarService.createEvent(
+        targetCalId,
+        syncName,
+        start,
+        end,
+        description: '$expectedHash\n---\n$marker',
+        isAllDay: false,
+      )).called(1);
+      expect(result.updated, ['src-priv-3']);
+    });
+
+    test('toggling omitSourceTitle from true to false cleans up fingerprint',
+        () async {
+      final srcEvent = makeEvent('src-priv-4', 'Doctor Appointment');
+
+      when(() => calendarService.listEvents(sourceCalId))
+          .thenAnswer((_) async => [srcEvent]);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => [
+            {
+              'id': 3,
+              'profile_id': profileId,
+              'source_calendar_id': sourceCalId,
+              'source_event_id': 'src-priv-4',
+              'target_calendar_id': targetCalId,
+              'target_event_id': 'old-priv-4',
+              'synced_at': '2027-01-01T00:00:00Z',
+              'canonical_time': null,
+            }
+          ]);
+      when(() => mappingDb.isEventCreatedBySync(sourceCalId, 'src-priv-4'))
+          .thenAnswer((_) async => false);
+      when(() => mappingDb.isEventSynced(profileId, sourceCalId, 'src-priv-4'))
+          .thenAnswer((_) async => true);
+      // Old target has the SHA256 (from omitSourceTitle=true era)
+      when(() => calendarService.getEvent('old-priv-4')).thenAnswer((_) async =>
+          Event(
+            eventId: 'old-priv-4',
+            instanceId: 'old-priv-4',
+            calendarId: targetCalId,
+            title: syncName,
+            description: '$expectedHash\n---\n$marker',
+            startDate: start,
+            endDate: end,
+            isAllDay: false,
+            availability: EventAvailability.busy,
+            status: EventStatus.none,
+            isRecurring: false,
+          ));
+      when(() => calendarService.createEvent(
+        targetCalId,
+        syncName,
+        start,
+        end,
+        description: 'Doctor Appointment\n---\n$marker',
+        isAllDay: false,
+      )).thenAnswer((_) async => 'new-priv-4');
+      when(() => calendarService.deleteEvent('old-priv-4'))
+          .thenAnswer((_) async => const CalendarDeleteResult(success: true));
+      when(() => mappingDb.deleteCreatedEvent(targetCalId, 'old-priv-4'))
+          .thenAnswer((_) async {});
+      when(() => mappingDb.insertMapping(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        sourceEventId: 'src-priv-4',
+        targetCalendarId: targetCalId,
+        targetEventId: 'new-priv-4',
+        syncedAt: any(named: 'syncedAt'),
+        canonicalTime: any(named: 'canonicalTime'),
+      )).thenAnswer((_) async {});
+      when(() => mappingDb.insertCreatedEvent(targetCalId, 'new-priv-4'))
+          .thenAnswer((_) async {});
+
+      final result = await engine.runSync(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+        omitSourceTitle: false,
+      );
+
+      verify(() => calendarService.createEvent(
+        targetCalId,
+        syncName,
+        start,
+        end,
+        description: 'Doctor Appointment\n---\n$marker',
+        isAllDay: false,
+      )).called(1);
+      expect(result.updated, ['src-priv-4']);
+    });
+  });
+
   group('buildDescription', () {
     const marker = '🔃 Automatically created by CalSync';
 
@@ -1750,6 +2072,86 @@ void main() {
     test('copyDescription=false with null description returns standard format', () {
       final result = buildDescription('Doctor Appointment', null, false);
       expect(result, 'Doctor Appointment\n---\n$marker');
+    });
+
+    test('omitSourceTitle=true replaces title with SHA256 fingerprint', () {
+      final result = buildDescription(
+        'Doctor Appointment',
+        'Q3 notes',
+        false,
+        omitSourceTitle: true,
+      );
+      expect(
+        result,
+        'de691f9d29a02d009e10def2bd0c4b8e7fe3eff4e0ef002eadbc329e27882333\n---\n$marker',
+      );
+    });
+
+    test('omitSourceTitle=true with copyDescription prepends source description', () {
+      final result = buildDescription(
+        'Doctor Appointment',
+        'Q3 notes',
+        true,
+        omitSourceTitle: true,
+      );
+      expect(
+        result,
+        'Q3 notes\n\nde691f9d29a02d009e10def2bd0c4b8e7fe3eff4e0ef002eadbc329e27882333\n---\n$marker',
+      );
+    });
+
+    test('omitSourceTitle=true with copyDescription and null source description', () {
+      final result = buildDescription(
+        'Doctor Appointment',
+        null,
+        true,
+        omitSourceTitle: true,
+      );
+      expect(
+        result,
+        'de691f9d29a02d009e10def2bd0c4b8e7fe3eff4e0ef002eadbc329e27882333\n---\n$marker',
+      );
+    });
+
+    test('omitSourceTitle=true with copyDescription and empty source description', () {
+      final result = buildDescription(
+        'Doctor Appointment',
+        '',
+        true,
+        omitSourceTitle: true,
+      );
+      expect(
+        result,
+        'de691f9d29a02d009e10def2bd0c4b8e7fe3eff4e0ef002eadbc329e27882333\n---\n$marker',
+      );
+    });
+
+    test('omitSourceTitle=true with empty title uses well-known SHA256 of empty string', () {
+      final result = buildDescription(
+        '',
+        null,
+        false,
+        omitSourceTitle: true,
+      );
+      expect(
+        result,
+        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n---\n$marker',
+      );
+    });
+
+    test('omitSourceTitle=true with known title matches hardcoded SHA256', () {
+      // Locks the algorithm: any change to the hashing approach will fail this test.
+      // SHA256 of "Doctor Appointment" computed via: echo -n "Doctor Appointment" | sha256sum
+      final result = buildDescription(
+        'Doctor Appointment',
+        null,
+        false,
+        omitSourceTitle: true,
+      );
+      expect(
+        result,
+        'de691f9d29a02d009e10def2bd0c4b8e7fe3eff4e0ef002eadbc329e27882333\n---\n$marker',
+      );
     });
   });
 }

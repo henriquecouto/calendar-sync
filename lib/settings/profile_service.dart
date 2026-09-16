@@ -12,6 +12,7 @@ class SyncProfile {
   final bool enabled;
   final bool copyDescription;
   final bool copyLocation;
+  final bool omitSourceTitle;
 
   const SyncProfile({
     required this.id,
@@ -23,6 +24,7 @@ class SyncProfile {
     required this.enabled,
     this.copyDescription = false,
     this.copyLocation = false,
+    this.omitSourceTitle = false,
   });
 
   SyncProfile copyWith({
@@ -34,6 +36,7 @@ class SyncProfile {
     bool? enabled,
     bool? copyDescription,
     bool? copyLocation,
+    bool? omitSourceTitle,
   }) {
     return SyncProfile(
       id: id,
@@ -45,6 +48,7 @@ class SyncProfile {
       enabled: enabled ?? this.enabled,
       copyDescription: copyDescription ?? this.copyDescription,
       copyLocation: copyLocation ?? this.copyLocation,
+      omitSourceTitle: omitSourceTitle ?? this.omitSourceTitle,
     );
   }
 }
@@ -60,6 +64,7 @@ class ProfileService {
   static const _columnEnabled = 'enabled';
   static const _columnCopyDescription = 'copy_description';
   static const _columnCopyLocation = 'copy_location';
+  static const _columnOmitSourceTitle = 'omit_source_title';
 
   final DatabaseProvider _dbProvider;
 
@@ -76,6 +81,7 @@ class ProfileService {
     required bool enabled,
     bool copyDescription = false,
     bool copyLocation = false,
+    bool omitSourceTitle = false,
   }) async {
     final db = await database;
     final id = const Uuid().v4();
@@ -89,6 +95,7 @@ class ProfileService {
       _columnEnabled: enabled ? 1 : 0,
       _columnCopyDescription: copyDescription ? 1 : 0,
       _columnCopyLocation: copyLocation ? 1 : 0,
+      _columnOmitSourceTitle: omitSourceTitle ? 1 : 0,
     });
     return SyncProfile(
       id: id,
@@ -100,6 +107,7 @@ class ProfileService {
       enabled: enabled,
       copyDescription: copyDescription,
       copyLocation: copyLocation,
+      omitSourceTitle: omitSourceTitle,
     );
   }
 
@@ -116,6 +124,7 @@ class ProfileService {
         _columnEnabled: profile.enabled ? 1 : 0,
         _columnCopyDescription: profile.copyDescription ? 1 : 0,
         _columnCopyLocation: profile.copyLocation ? 1 : 0,
+        _columnOmitSourceTitle: profile.omitSourceTitle ? 1 : 0,
       },
       where: '$_columnId = ?',
       whereArgs: [profile.id],
@@ -232,6 +241,7 @@ class ProfileService {
       enabled: (row[_columnEnabled] as int?) == 1,
       copyDescription: (row[_columnCopyDescription] as int?) == 1,
       copyLocation: (row[_columnCopyLocation] as int?) == 1,
+      omitSourceTitle: (row[_columnOmitSourceTitle] as int?) == 1,
     );
   }
 }

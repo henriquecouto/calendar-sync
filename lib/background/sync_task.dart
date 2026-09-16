@@ -68,6 +68,7 @@ void callbackDispatcher() {
             syncEventName: syncName,
             copyDescription: profile.copyDescription,
             copyLocation: profile.copyLocation,
+            omitSourceTitle: profile.omitSourceTitle,
           );
 
 

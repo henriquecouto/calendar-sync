@@ -33,3 +33,10 @@ analyzer:
     - lib/subscriptions/subscription_service_gplay.dart
     - lib/screens/subscription_screen_gplay.dart
     - lib/screens/upsell_bottom_sheet_gplay.dart
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
