@@ -1,0 +1,1 @@
+- feat: omit source event title from synced description for privacy (#59)
