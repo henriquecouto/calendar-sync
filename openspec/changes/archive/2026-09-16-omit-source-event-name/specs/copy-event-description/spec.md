@@ -1,18 +1,14 @@
-# Copy Event Description
-
-## Purpose
-
-Allow sync profiles to optionally copy the source event's description and location into the target event's description and location fields.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Profile controls source description copying
 
 Each sync profile SHALL have a `copyDescription` boolean field, defaulting to `false`. When `true`, the sync engine SHALL copy the source event's description into the target event's description, prepended above the original title and sync marker block. When `false` or when the source event has a null or empty description, the target event description SHALL remain as the original title + sync marker only (no change from current behavior).
 
+When the profile also has `omitSourceTitle: true`, the source description SHALL still be prepended, but the original title line that normally follows SHALL be omitted. The prepended source description SHALL then be followed only by the sync marker (no title, no `---` separator since the title is the only thing being separated).
+
 #### Scenario: Copy description enabled with non-empty source description
 
-- **WHEN** a profile has `copyDescription: true`
+- **WHEN** a profile has `copyDescription: true` and `omitSourceTitle: false`
 - **AND** the source event has description "Meeting agenda: Q3 planning"
 - **THEN** the target event description SHALL be:
   ```

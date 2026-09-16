@@ -35,6 +35,7 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
   bool _syncEnabled = true;
   bool _copyDescription = false;
   bool _copyLocation = false;
+  bool _omitSourceTitle = false;
   String? _profileId;
   int? _profileIndex;
 
@@ -76,6 +77,7 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
         _syncEnabled = profile.enabled;
         _copyDescription = profile.copyDescription;
         _copyLocation = profile.copyLocation;
+        _omitSourceTitle = profile.omitSourceTitle;
         _nameController.text = profile.name;
       }
     }
@@ -172,6 +174,7 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
           enabled: _enableRestricted ? false : _syncEnabled,
           copyDescription: _copyDescription,
           copyLocation: _copyLocation,
+          omitSourceTitle: _omitSourceTitle,
         ));
       }
     } else {
@@ -184,6 +187,7 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
         enabled: _syncEnabled,
         copyDescription: _copyDescription,
         copyLocation: _copyLocation,
+        omitSourceTitle: _omitSourceTitle,
       );
     }
 
@@ -259,7 +263,8 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
     final advancedExpanded = _isEditing &&
         (_syncNameController.text.isNotEmpty ||
             _copyDescription ||
-            _copyLocation);
+            _copyLocation ||
+            _omitSourceTitle);
 
     return PopScope(
       canPop: false,
@@ -460,6 +465,22 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
                           value: _copyDescription,
                           onChanged: (val) {
                             setState(() => _copyDescription = val);
+                          },
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Omit source event title'),
+                          subtitle: DefaultTextStyle(
+                            style: hintStyle,
+                            child: const Text(
+                              'Hide the original event title from the synced '
+                              'event\'s description — only a non-reversible '
+                              'SHA256 fingerprint is stored',
+                            ),
+                          ),
+                          value: _omitSourceTitle,
+                          onChanged: (val) {
+                            setState(() => _omitSourceTitle = val);
                           },
                         ),
                       ],

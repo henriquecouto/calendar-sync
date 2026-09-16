@@ -84,6 +84,57 @@ void main() {
       expect(updated.enabled, false);
     });
 
+    test('omitSourceTitle round-trips through createProfile → getProfile', () async {
+      final profile = await profileService.createProfile(
+        name: 'Privacy',
+        sourceCalendarId: 'cal-A',
+        targetCalendarId: 'cal-B',
+        eventName: 'Busy',
+        intervalMinutes: 60,
+        enabled: true,
+        omitSourceTitle: true,
+      );
+
+      expect(profile.omitSourceTitle, true);
+
+      final loaded = await profileService.getProfile(profile.id);
+      expect(loaded!.omitSourceTitle, true);
+    });
+
+    test('omitSourceTitle defaults to false when not provided', () async {
+      final profile = await profileService.createProfile(
+        name: 'Default',
+        eventName: 'E',
+        intervalMinutes: 60,
+        enabled: true,
+      );
+
+      expect(profile.omitSourceTitle, false);
+
+      final loaded = await profileService.getProfile(profile.id);
+      expect(loaded!.omitSourceTitle, false);
+    });
+
+    test('omitSourceTitle round-trips through updateProfile → getProfile', () async {
+      final profile = await profileService.createProfile(
+        name: 'Toggle',
+        eventName: 'E',
+        intervalMinutes: 60,
+        enabled: true,
+        omitSourceTitle: false,
+      );
+
+      await profileService.updateProfile(profile.copyWith(omitSourceTitle: true));
+
+      final updated = await profileService.getProfile(profile.id);
+      expect(updated!.omitSourceTitle, true);
+
+      await profileService.updateProfile(updated.copyWith(omitSourceTitle: false));
+
+      final toggledBack = await profileService.getProfile(profile.id);
+      expect(toggledBack!.omitSourceTitle, false);
+    });
+
     test('deleteProfile removes the profile', () async {
       final profile = await profileService.createProfile(
         name: 'ToDelete', eventName: 'E', intervalMinutes: 60, enabled: true,

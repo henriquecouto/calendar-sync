@@ -78,6 +78,8 @@ class _DryRunScreenState extends State<DryRunScreen> {
       sourceCalendarId: sourceId,
       targetCalendarId: targetId,
       syncEventName: syncName,
+      copyDescription: profile.copyDescription,
+      omitSourceTitle: profile.omitSourceTitle,
     );
 
     setState(() {

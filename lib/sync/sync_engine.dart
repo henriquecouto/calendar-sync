@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'package:crypto/crypto.dart';
 import 'package:device_calendar_plus/device_calendar_plus.dart';
 import '../calendar/calendar_service.dart';
 import 'mapping_database.dart';
@@ -9,9 +10,13 @@ const _syncMarker = '\u{1F503} Automatically created by CalSync';
 String buildDescription(
   String originalTitle,
   String? sourceDescription,
-  bool copyDescription,
-) {
-  String description = '$originalTitle\n---\n$_syncMarker';
+  bool copyDescription, {
+  bool omitSourceTitle = false,
+}) {
+  final titleLine = omitSourceTitle
+      ? sha256.convert(originalTitle.codeUnits).toString()
+      : originalTitle;
+  String description = '$titleLine\n---\n$_syncMarker';
   if (copyDescription &&
       sourceDescription != null &&
       sourceDescription.isNotEmpty) {
@@ -79,12 +84,15 @@ class SyncEngine {
     required String syncEventName,
     bool copyDescription = false,
     bool copyLocation = false,
+    bool omitSourceTitle = false,
   }) async {
     final plan = await _classify(
       profileId: profileId,
       sourceCalendarId: sourceCalendarId,
       targetCalendarId: targetCalendarId,
       syncEventName: syncEventName,
+      copyDescription: copyDescription,
+      omitSourceTitle: omitSourceTitle,
     );
 
 
@@ -106,6 +114,7 @@ class SyncEngine {
       syncEventName: syncEventName,
       copyDescription: copyDescription,
       copyLocation: copyLocation,
+      omitSourceTitle: omitSourceTitle,
     );
 
     return result;
@@ -116,12 +125,16 @@ class SyncEngine {
     required String sourceCalendarId,
     required String targetCalendarId,
     required String syncEventName,
+    bool copyDescription = false,
+    bool omitSourceTitle = false,
   }) async {
     return _classify(
       profileId: profileId,
       sourceCalendarId: sourceCalendarId,
       targetCalendarId: targetCalendarId,
       syncEventName: syncEventName,
+      copyDescription: copyDescription,
+      omitSourceTitle: omitSourceTitle,
     );
   }
 
@@ -181,6 +194,8 @@ class SyncEngine {
     required String sourceCalendarId,
     required String targetCalendarId,
     required String syncEventName,
+    bool copyDescription = false,
+    bool omitSourceTitle = false,
   }) async {
     final toCreate = <ToCreateEntry>[];
     final toUpdate = <ToUpdateEntry>[];
@@ -245,6 +260,8 @@ class SyncEngine {
             targetCalendarId: targetCalendarId,
             syncEventName: syncEventName,
             mappings: mappings,
+            copyDescription: copyDescription,
+            omitSourceTitle: omitSourceTitle,
           );
         }
         toSkip.add(event);
@@ -266,6 +283,8 @@ class SyncEngine {
         targetCalendarId: targetCalendarId,
         syncEventName: syncEventName,
         mappings: mappings,
+        copyDescription: copyDescription,
+        omitSourceTitle: omitSourceTitle,
       );
 
     }
@@ -289,6 +308,8 @@ class SyncEngine {
     required String targetCalendarId,
     required String syncEventName,
     required List<Map<String, Object?>> mappings,
+    bool copyDescription = false,
+    bool omitSourceTitle = false,
   }) async {
     final eventId = event.eventId;
 
@@ -348,8 +369,11 @@ class SyncEngine {
                   event.endDate.millisecondsSinceEpoch !=
                       targetEvent.endDate.millisecondsSinceEpoch;
         }
+        final titleFingerprint = omitSourceTitle
+            ? sha256.convert(event.title.codeUnits).toString()
+            : event.title;
         final titleChanged =
-            !(targetEvent.description?.contains(event.title) ?? false);
+            !(targetEvent.description?.contains(titleFingerprint) ?? false);
 
         if (!timeChanged && !titleChanged) {
           toSkip.add(event);
@@ -385,6 +409,7 @@ class SyncEngine {
     required String syncEventName,
     required bool copyDescription,
     required bool copyLocation,
+    required bool omitSourceTitle,
   }) async {
     final synced = <String>[];
     final skipped = <String>[];
@@ -429,6 +454,7 @@ class SyncEngine {
             event.title,
             event.description,
             copyDescription,
+            omitSourceTitle: omitSourceTitle,
           ),
           isAllDay: entry.projectedAllDay,
               recurrenceRule:
@@ -484,6 +510,7 @@ class SyncEngine {
             event.title,
             event.description,
             copyDescription,
+            omitSourceTitle: omitSourceTitle,
           ),
           isAllDay: event.isAllDay,
               recurrenceRule:
