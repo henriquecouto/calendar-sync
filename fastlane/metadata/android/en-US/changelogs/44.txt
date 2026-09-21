@@ -1,0 +1,2 @@
+- Bump version from 1.9.9+43 to 1.10.0+44
+- Fix calendar dropdown overflow, add account labels, and support auto-refresh (#61)
