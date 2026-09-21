@@ -19,11 +19,24 @@ class ProfileConfigScreen extends StatefulWidget {
 class _CalendarItem {
   final String id;
   final String name;
+  final String? accountName;
+  final bool readOnly;
 
-  const _CalendarItem(this.id, this.name);
+  const _CalendarItem(
+    this.id,
+    this.name, {
+    this.accountName,
+    this.readOnly = false,
+  });
+
+  String get displayName =>
+      accountName != null && accountName!.isNotEmpty && accountName != name
+          ? '$name ($accountName)'
+          : name;
 }
 
-class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
+class _ProfileConfigScreenState extends State<ProfileConfigScreen>
+    with WidgetsBindingObserver {
   final _profileService = ProfileService();
   final _calendarService = CalendarService();
   final _nameController = TextEditingController();
@@ -48,8 +61,16 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _profileId = widget.profileId;
     _load();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load();
+    }
   }
 
   bool get _isEditing => _profileId != null;
@@ -88,6 +109,8 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
           .map((c) => _CalendarItem(
                 c.id,
                 c.name.isNotEmpty ? c.name : (c.accountName ?? 'Unknown'),
+                accountName: c.accountName,
+                readOnly: c.readOnly,
               ))
           .toList();
       _loading = false;
@@ -111,6 +134,15 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
       return null;
     }
     if (name.isEmpty) return 'Profile name is required';
+
+    if (_targetCalendarId != null) {
+      final target =
+          _calendars.where((c) => c.id == _targetCalendarId).firstOrNull;
+      if (target != null && target.readOnly) {
+        return 'Target calendar is read-only and cannot receive synced events';
+      }
+    }
+
     return null;
   }
 
@@ -240,6 +272,7 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _nameController.dispose();
     _syncNameController.dispose();
     super.dispose();
@@ -274,6 +307,16 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(_isEditing ? 'Edit Profile' : 'Create Profile'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh calendars',
+              onPressed: () {
+                setState(() => _loading = true);
+                _load();
+              },
+            ),
+          ],
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -317,9 +360,10 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
                               label: const Text('Source Calendar'),
                               errorText: _pairingError,
                               expandedInsets: EdgeInsets.zero,
+                              menuHeight: 320,
                               dropdownMenuEntries: _calendars.map((c) {
                                 return DropdownMenuEntry(
-                                    value: c.id, label: c.name);
+                                    value: c.id, label: c.displayName);
                               }).toList(),
                               onSelected: (val) {
                                 if (val != null) {
@@ -336,9 +380,15 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
                               label: const Text('Target Calendar'),
                               errorText: _pairingError,
                               expandedInsets: EdgeInsets.zero,
+                              menuHeight: 320,
                               dropdownMenuEntries: _calendars.map((c) {
                                 return DropdownMenuEntry(
-                                    value: c.id, label: c.name);
+                                  value: c.id,
+                                  label: c.readOnly
+                                      ? '${c.displayName} (read-only)'
+                                      : c.displayName,
+                                  enabled: !c.readOnly,
+                                );
                               }).toList(),
                               onSelected: (val) {
                                 if (val != null) {
@@ -410,6 +460,7 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen> {
                           initialSelection: _intervalMinutes,
                           label: const Text('Fallback Interval'),
                           expandedInsets: EdgeInsets.zero,
+                          menuHeight: 240,
                           dropdownMenuEntries: const [
                             DropdownMenuEntry(
                                 value: 0, label: 'Off (manual only)'),
