@@ -14,6 +14,7 @@ void main() {
     db = await mappingDb.database;
 
     await db.delete('sync_status');
+    await db.delete('sync_mappings');
   });
 
   group('Status history', () {
@@ -89,6 +90,82 @@ void main() {
 
       expect(historyA.length, 20);
       expect(historyB.length, 20);
+    });
+  });
+
+  group('Per-instance mappings', () {
+    Future<void> insert(String profileId, String sourceEventId,
+        {String? sourceInstanceId, String? targetEventId}) async {
+      await mappingDb.insertMapping(
+        profileId: profileId,
+        sourceCalendarId: 'cal-a',
+        sourceEventId: sourceEventId,
+        sourceInstanceId: sourceInstanceId,
+        targetCalendarId: 'cal-b',
+        targetEventId: targetEventId ?? 'tgt-$sourceEventId-${sourceInstanceId ?? 'x'}',
+        syncedAt: '2026-06-17T10:00:00',
+      );
+    }
+
+    test('insertMapping stores source_instance_id for occurrences', () async {
+      await insert('prof-1', '100', sourceInstanceId: '100@t1');
+
+      final rows = await mappingDb.listMappingsForCalendar('prof-1', 'cal-a');
+      expect(rows, hasLength(1));
+      expect(rows.first['source_event_id'], '100');
+      expect(rows.first['source_instance_id'], '100@t1');
+    });
+
+    test('insertMapping stores null instance id for non-recurring events', () async {
+      await insert('prof-1', 'src-1');
+
+      final rows = await mappingDb.listMappingsForCalendar('prof-1', 'cal-a');
+      expect(rows, hasLength(1));
+      expect(rows.first['source_instance_id'], isNull);
+    });
+
+    test('two occurrences of the same series map independently', () async {
+      await insert('prof-1', '100', sourceInstanceId: '100@t1');
+      await insert('prof-1', '100', sourceInstanceId: '100@t2');
+
+      final rows = await mappingDb.listMappingsForCalendar('prof-1', 'cal-a');
+      expect(rows, hasLength(2));
+    });
+
+    test('same instance twice is prevented by the UNIQUE constraint', () async {
+      await insert('prof-1', '100', sourceInstanceId: '100@t1');
+      await insert('prof-1', '100', sourceInstanceId: '100@t1');
+
+      final rows = await mappingDb.listMappingsForCalendar('prof-1', 'cal-a');
+      expect(rows, hasLength(1));
+    });
+
+    test('isEventSynced distinguishes instances of the same series', () async {
+      await insert('prof-1', '100', sourceInstanceId: '100@t1');
+
+      expect(
+        await mappingDb.isEventSynced('prof-1', 'cal-a', '100',
+            sourceInstanceId: '100@t1'),
+        isTrue,
+      );
+      expect(
+        await mappingDb.isEventSynced('prof-1', 'cal-a', '100',
+            sourceInstanceId: '100@t2'),
+        isFalse,
+      );
+      expect(
+        await mappingDb.isEventSynced('prof-1', 'cal-a', '100'),
+        isFalse,
+      );
+    });
+
+    test('non-recurring event is still found without instance id', () async {
+      await insert('prof-1', 'src-1');
+
+      expect(
+        await mappingDb.isEventSynced('prof-1', 'cal-a', 'src-1'),
+        isTrue,
+      );
     });
   });
 }

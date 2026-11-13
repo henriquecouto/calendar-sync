@@ -153,9 +153,53 @@ void main() {
 
       expect(profile.eventName, '');
       expect(profile.intervalMinutes, 60);
+      expect(profile.syncWindowDays, 30);
       expect(profile.enabled, false);
       expect(profile.sourceCalendarId, isNull);
       expect(profile.targetCalendarId, isNull);
+    });
+
+    test('syncWindowDays round-trips through createProfile → getProfile', () async {
+      final profile = await profileService.createProfile(
+        name: 'Windowed',
+        eventName: 'E',
+        intervalMinutes: 60,
+        enabled: true,
+        syncWindowDays: 365,
+      );
+
+      expect(profile.syncWindowDays, 365);
+
+      final loaded = await profileService.getProfile(profile.id);
+      expect(loaded!.syncWindowDays, 365);
+    });
+
+    test('syncWindowDays defaults to 30 when not provided', () async {
+      final profile = await profileService.createProfile(
+        name: 'DefaultWindow',
+        eventName: 'E',
+        intervalMinutes: 60,
+        enabled: true,
+      );
+
+      expect(profile.syncWindowDays, 30);
+
+      final loaded = await profileService.getProfile(profile.id);
+      expect(loaded!.syncWindowDays, 30);
+    });
+
+    test('syncWindowDays round-trips through updateProfile → getProfile', () async {
+      final profile = await profileService.createProfile(
+        name: 'WindowToggle',
+        eventName: 'E',
+        intervalMinutes: 60,
+        enabled: true,
+      );
+
+      await profileService.updateProfile(profile.copyWith(syncWindowDays: 90));
+
+      final updated = await profileService.getProfile(profile.id);
+      expect(updated!.syncWindowDays, 90);
     });
   });
 

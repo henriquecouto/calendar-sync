@@ -9,6 +9,7 @@ class SyncProfile {
   final String? targetCalendarId;
   final String eventName;
   final int intervalMinutes;
+  final int syncWindowDays;
   final bool enabled;
   final bool copyDescription;
   final bool copyLocation;
@@ -21,6 +22,7 @@ class SyncProfile {
     this.targetCalendarId,
     required this.eventName,
     required this.intervalMinutes,
+    this.syncWindowDays = 30,
     required this.enabled,
     this.copyDescription = false,
     this.copyLocation = false,
@@ -33,6 +35,7 @@ class SyncProfile {
     String? targetCalendarId,
     String? eventName,
     int? intervalMinutes,
+    int? syncWindowDays,
     bool? enabled,
     bool? copyDescription,
     bool? copyLocation,
@@ -45,6 +48,7 @@ class SyncProfile {
       targetCalendarId: targetCalendarId ?? this.targetCalendarId,
       eventName: eventName ?? this.eventName,
       intervalMinutes: intervalMinutes ?? this.intervalMinutes,
+      syncWindowDays: syncWindowDays ?? this.syncWindowDays,
       enabled: enabled ?? this.enabled,
       copyDescription: copyDescription ?? this.copyDescription,
       copyLocation: copyLocation ?? this.copyLocation,
@@ -65,6 +69,7 @@ class ProfileService {
   static const _columnCopyDescription = 'copy_description';
   static const _columnCopyLocation = 'copy_location';
   static const _columnOmitSourceTitle = 'omit_source_title';
+  static const _columnSyncWindowDays = 'sync_window_days';
 
   final DatabaseProvider _dbProvider;
 
@@ -78,6 +83,7 @@ class ProfileService {
     String? targetCalendarId,
     required String eventName,
     required int intervalMinutes,
+    int syncWindowDays = 30,
     required bool enabled,
     bool copyDescription = false,
     bool copyLocation = false,
@@ -92,6 +98,7 @@ class ProfileService {
       _columnTargetCalendarId: targetCalendarId,
       _columnEventName: eventName,
       _columnIntervalMinutes: intervalMinutes,
+      _columnSyncWindowDays: syncWindowDays,
       _columnEnabled: enabled ? 1 : 0,
       _columnCopyDescription: copyDescription ? 1 : 0,
       _columnCopyLocation: copyLocation ? 1 : 0,
@@ -104,6 +111,7 @@ class ProfileService {
       targetCalendarId: targetCalendarId,
       eventName: eventName,
       intervalMinutes: intervalMinutes,
+      syncWindowDays: syncWindowDays,
       enabled: enabled,
       copyDescription: copyDescription,
       copyLocation: copyLocation,
@@ -121,6 +129,7 @@ class ProfileService {
         _columnTargetCalendarId: profile.targetCalendarId,
         _columnEventName: profile.eventName,
         _columnIntervalMinutes: profile.intervalMinutes,
+        _columnSyncWindowDays: profile.syncWindowDays,
         _columnEnabled: profile.enabled ? 1 : 0,
         _columnCopyDescription: profile.copyDescription ? 1 : 0,
         _columnCopyLocation: profile.copyLocation ? 1 : 0,
@@ -238,6 +247,7 @@ class ProfileService {
       targetCalendarId: row[_columnTargetCalendarId] as String?,
       eventName: (row[_columnEventName] as String?) ?? '',
       intervalMinutes: (row[_columnIntervalMinutes] as int?) ?? 60,
+      syncWindowDays: (row[_columnSyncWindowDays] as int?) ?? 30,
       enabled: (row[_columnEnabled] as int?) == 1,
       copyDescription: (row[_columnCopyDescription] as int?) == 1,
       copyLocation: (row[_columnCopyLocation] as int?) == 1,

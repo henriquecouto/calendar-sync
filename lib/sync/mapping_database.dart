@@ -7,6 +7,7 @@ class MappingDatabase {
   static const _columnProfileId = 'profile_id';
   static const _columnSourceCalendarId = 'source_calendar_id';
   static const _columnSourceEventId = 'source_event_id';
+  static const _columnSourceInstanceId = 'source_instance_id';
   static const _columnTargetCalendarId = 'target_calendar_id';
   static const _columnTargetEventId = 'target_event_id';
   static const _columnSyncedAt = 'synced_at';
@@ -35,14 +36,25 @@ class MappingDatabase {
   Future<bool> isEventSynced(
     String profileId,
     String sourceCalendarId,
-    String sourceEventId,
-  ) async {
+    String sourceEventId, {
+    String? sourceInstanceId,
+  }) async {
     final db = await database;
+    final instanceClause = sourceInstanceId != null
+        ? '$_columnSourceInstanceId = ?'
+        : '$_columnSourceInstanceId IS NULL';
+    final instanceArgs =
+        sourceInstanceId != null ? [sourceInstanceId] : const <Object?>[];
     final result = await db.query(
       _tableName,
       where:
-          '$_columnProfileId = ? AND $_columnSourceCalendarId = ? AND $_columnSourceEventId = ?',
-      whereArgs: [profileId, sourceCalendarId, sourceEventId],
+          '$_columnProfileId = ? AND $_columnSourceCalendarId = ? AND $_columnSourceEventId = ? AND $instanceClause',
+      whereArgs: [
+        profileId,
+        sourceCalendarId,
+        sourceEventId,
+        ...instanceArgs,
+      ],
       limit: 1,
     );
     final synced = result.isNotEmpty;
@@ -53,6 +65,7 @@ class MappingDatabase {
     required String profileId,
     required String sourceCalendarId,
     required String sourceEventId,
+    String? sourceInstanceId,
     required String targetCalendarId,
     required String targetEventId,
     required String syncedAt,
@@ -65,10 +78,11 @@ class MappingDatabase {
         _columnProfileId: profileId,
         _columnSourceCalendarId: sourceCalendarId,
         _columnSourceEventId: sourceEventId,
+        _columnSourceInstanceId: ?sourceInstanceId,
         _columnTargetCalendarId: targetCalendarId,
         _columnTargetEventId: targetEventId,
         _columnSyncedAt: syncedAt,
-        if (canonicalTime != null) _columnCanonicalTime: canonicalTime,
+        _columnCanonicalTime: ?canonicalTime,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );

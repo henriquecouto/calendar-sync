@@ -45,6 +45,7 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen>
   String? _sourceCalendarId;
   String? _targetCalendarId;
   int _intervalMinutes = 60;
+  int _syncWindowDays = 30;
   bool _syncEnabled = true;
   bool _copyDescription = false;
   bool _copyLocation = false;
@@ -95,6 +96,7 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen>
         _targetCalendarId = profile.targetCalendarId;
         _syncNameController.text = profile.eventName;
         _intervalMinutes = profile.intervalMinutes;
+        _syncWindowDays = profile.syncWindowDays;
         _syncEnabled = profile.enabled;
         _copyDescription = profile.copyDescription;
         _copyLocation = profile.copyLocation;
@@ -203,6 +205,7 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen>
           targetCalendarId: _targetCalendarId,
           eventName: eventName,
           intervalMinutes: _intervalMinutes,
+          syncWindowDays: _syncWindowDays,
           enabled: _enableRestricted ? false : _syncEnabled,
           copyDescription: _copyDescription,
           copyLocation: _copyLocation,
@@ -216,6 +219,7 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen>
         targetCalendarId: _targetCalendarId,
         eventName: eventName,
         intervalMinutes: _intervalMinutes,
+        syncWindowDays: _syncWindowDays,
         enabled: _syncEnabled,
         copyDescription: _copyDescription,
         copyLocation: _copyLocation,
@@ -297,7 +301,8 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen>
         (_syncNameController.text.isNotEmpty ||
             _copyDescription ||
             _copyLocation ||
-            _omitSourceTitle);
+            _omitSourceTitle ||
+            _syncWindowDays != 30);
 
     return PopScope(
       canPop: false,
@@ -484,6 +489,37 @@ class _ProfileConfigScreenState extends State<ProfileConfigScreen>
                           child: Text(
                             'Changes are detected within seconds. '
                             'The interval above is a fallback only.',
+                            style: hintStyle,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownMenu<int>(
+                          initialSelection: _syncWindowDays,
+                          label: const Text('Sync Window'),
+                          expandedInsets: EdgeInsets.zero,
+                          menuHeight: 240,
+                          dropdownMenuEntries: const [
+                            DropdownMenuEntry(
+                                value: 30, label: '1 month'),
+                            DropdownMenuEntry(
+                                value: 90, label: '3 months'),
+                            DropdownMenuEntry(
+                                value: 180, label: '6 months'),
+                            DropdownMenuEntry(
+                                value: 365, label: '1 year'),
+                          ],
+                          onSelected: (val) {
+                            if (val != null) {
+                              setState(() => _syncWindowDays = val);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'How far into the future events are synced. '
+                            'Longer windows create more events ahead of time.',
                             style: hintStyle,
                           ),
                         ),

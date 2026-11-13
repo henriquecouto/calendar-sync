@@ -79,7 +79,8 @@ bundle exec fastlane deploy track:internal        # build + upload
 ## Gotchas
 - `device_calendar` requires runtime permissions (`READ_CALENDAR` / `WRITE_CALENDAR`). Permission flow must be handled before any calendar operation.
 - Calendar IDs and event IDs are **per-provider** — the same event may have different IDs across calendar accounts. Do not rely on ID equality for sync detection.
-- Sync detection should use a **local mapping table** (persisted on device) that tracks `(source_event_id, source_calendar_id) → (target_event_id, target_calendar_id)`.
+- Sync detection should use a **local mapping table** (persisted on device) that tracks `(source_event_id, source_instance_id, source_calendar_id) → (target_event_id, target_calendar_id)`. It is one-to-many: each occurrence of a recurring source event has its own mapping row (`source_instance_id` = the occurrence's `instanceId`; `NULL` for non-recurring events).
+- Recurring source events are **not** mirrored as recurring target events. Each occurrence in the profile's sync window (1/3/6/12 months, default 1 month) is synced as an independent, non-recurring target event. Moved or deleted occurrences converge via delete + create.
 
 ## Conventions
 - Prefer `flutter` CLI commands over IDE wrappers.

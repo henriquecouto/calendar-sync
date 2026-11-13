@@ -25,7 +25,7 @@ class DatabaseProvider {
     final path = join(dbPath, name);
     final db = await openDatabase(
       path,
-      version: 8,
+      version: 9,
       singleInstance: false,
       onConfigure: (db) async {
         await db.rawQuery('PRAGMA journal_mode=WAL');
@@ -37,11 +37,12 @@ class DatabaseProvider {
             profile_id TEXT NOT NULL DEFAULT '',
             source_calendar_id TEXT NOT NULL,
             source_event_id TEXT NOT NULL,
+            source_instance_id TEXT,
             target_calendar_id TEXT NOT NULL,
             target_event_id TEXT NOT NULL,
             synced_at TEXT NOT NULL,
             canonical_time TEXT,
-            UNIQUE(profile_id, source_calendar_id, source_event_id)
+            UNIQUE(profile_id, source_calendar_id, source_event_id, source_instance_id)
           )
         ''');
         await db.execute('''
@@ -67,7 +68,8 @@ class DatabaseProvider {
           enabled INTEGER NOT NULL DEFAULT 1,
           copy_description INTEGER NOT NULL DEFAULT 0,
           copy_location INTEGER NOT NULL DEFAULT 0,
-          omit_source_title INTEGER NOT NULL DEFAULT 0
+          omit_source_title INTEGER NOT NULL DEFAULT 0,
+          sync_window_days INTEGER NOT NULL DEFAULT 30
           )
         ''');
         await db.execute('''
@@ -144,6 +146,32 @@ class DatabaseProvider {
         }
         if (oldVersion < 8) {
           await db.execute('ALTER TABLE sync_profiles ADD COLUMN omit_source_title INTEGER NOT NULL DEFAULT 0');
+        }
+        if (oldVersion < 9) {
+          await db.execute('ALTER TABLE sync_profiles ADD COLUMN sync_window_days INTEGER NOT NULL DEFAULT 30');
+          await db.execute('''
+            CREATE TABLE sync_mappings_new (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              profile_id TEXT NOT NULL DEFAULT '',
+              source_calendar_id TEXT NOT NULL,
+              source_event_id TEXT NOT NULL,
+              source_instance_id TEXT,
+              target_calendar_id TEXT NOT NULL,
+              target_event_id TEXT NOT NULL,
+              synced_at TEXT NOT NULL,
+              canonical_time TEXT,
+              UNIQUE(profile_id, source_calendar_id, source_event_id, source_instance_id)
+            )
+          ''');
+          await db.execute('''
+            INSERT INTO sync_mappings_new
+              (id, profile_id, source_calendar_id, source_event_id, source_instance_id, target_calendar_id, target_event_id, synced_at, canonical_time)
+            SELECT
+              id, profile_id, source_calendar_id, source_event_id, NULL, target_calendar_id, target_event_id, synced_at, canonical_time
+            FROM sync_mappings
+          ''');
+          await db.execute('DROP TABLE sync_mappings');
+          await db.execute('ALTER TABLE sync_mappings_new RENAME TO sync_mappings');
         }
       },
     );
