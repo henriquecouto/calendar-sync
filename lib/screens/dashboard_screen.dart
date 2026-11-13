@@ -105,6 +105,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       sourceCalendarId: sourceId,
       targetCalendarId: targetId,
       syncEventName: syncName,
+      syncWindowDays: profile.syncWindowDays,
       copyDescription: profile.copyDescription,
       copyLocation: profile.copyLocation,
       omitSourceTitle: profile.omitSourceTitle,

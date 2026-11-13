@@ -13,12 +13,13 @@ class CalendarService {
     }
   }
 
-  Future<List<Event>> listEvents(String calendarId) async {
+  Future<List<Event>> listEvents(String calendarId, {DateTime? end}) async {
     final now = DateTime.now();
+    final endDate = end ?? now.add(const Duration(days: 30));
     try {
       return await _plugin.listEvents(
         now,
-        now.add(const Duration(days: 30)),
+        endDate,
         calendarIds: [calendarId],
       );
     } on DeviceCalendarException {
@@ -33,7 +34,6 @@ class CalendarService {
     DateTime end, {
     String? description,
     bool? isAllDay,
-    RecurrenceRule? recurrenceRule,
     String? location,
   }) async {
     try {
@@ -44,7 +44,6 @@ class CalendarService {
         endDate: end,
         description: description,
         isAllDay: isAllDay ?? false,
-        recurrenceRule: recurrenceRule,
         location: location,
       );
     } on DeviceCalendarException {
