@@ -1,0 +1,1 @@
+- Sync recurring events as independent instances with configurable window (#64)
