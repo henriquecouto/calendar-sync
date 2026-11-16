@@ -1,0 +1,2 @@
+- fix: keep past recurring occurrence targets from being deleted (#65)
+- Add funding information for GitHub sponsors
