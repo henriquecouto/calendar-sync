@@ -295,7 +295,7 @@ After successfully creating a target event, the system SHALL insert a row into t
 - **THEN** the mapping row is removed after the target event is deleted
 
 ### Requirement: Run full sync cycle
-The system SHALL execute a sync cycle for a given profile: list source events from now to now plus the profile's configured sync window, query the mapping table filtered by profile ID and source calendar, and classify each listed source event individually by its (source_event_id, source_instance_id) pair. For each mapped source event absent from the listing, the system SHALL check the target event's end time against a 7-day threshold. If the target event's end time is more than 7 days in the past, the system SHALL keep it. If the target event's end time is within 7 days, the system SHALL resolve the orphan: if the mapping has a non-null `source_instance_id`, the system SHALL fetch the series master by `source_event_id` — if the master exists, the occurrence was moved or deleted as an exception, and the system SHALL delete the target event and remove its mapping; if the master is gone, the whole series was deleted, and the system SHALL delete the target event and remove its mapping. If the mapping has a null `source_instance_id` (non-recurring event), the system SHALL fetch the source event by ID: if found, re-classify it (update/create path); if not found, delete the target event and remove its mapping. The system SHALL create target events for unmapped source events, update target events for already-synced source events whose fields changed, and record new mappings with the profile ID. Occurrences of recurring series SHALL be classified directly; the series master is fetched only during orphan resolution, never to create a recurring target event.
+The system SHALL execute a sync cycle for a given profile: list source events from now to now plus the profile's configured sync window, query the mapping table filtered by profile ID and source calendar, and classify each listed source event individually by its (source_event_id, source_instance_id) pair. For each mapped source event absent from the listing, the system SHALL resolve the orphan based on the mapping's kind and the target event's end time. If the mapping has a non-null `source_instance_id` (occurrence of a recurring series) and the target event's end time is already in the past, the system SHALL keep the target event and its mapping — past occurrences are never touched. If the mapping has a non-null `source_instance_id` and the target event's end time is still in the future, the system SHALL fetch the series master by `source_event_id`: if the master exists, the occurrence was moved or deleted as an exception, and the system SHALL delete the target event and remove its mapping; if the master is gone, the whole series was deleted, and the system SHALL delete the target event and remove its mapping. If the mapping has a null `source_instance_id` (non-recurring event), the system SHALL check the target event's end time against a 7-day threshold: if the target event's end time is more than 7 days in the past, the system SHALL keep it; otherwise the system SHALL fetch the source event by ID — if found, re-classify it (update/create path); if not found, delete the target event and remove its mapping. The system SHALL create target events for unmapped source events, update target events for already-synced source events whose fields changed, and record new mappings with the profile ID. Occurrences of recurring series SHALL be classified directly; the series master is fetched only during orphan resolution, never to create a recurring target event.
 
 #### Scenario: Full sync with new events
 - **WHEN** the source calendar has 3 events and none are in the mapping table
@@ -346,9 +346,22 @@ The system SHALL execute a sync cycle for a given profile: list source events fr
 - **AND** 3 occurrence mappings exist with target events in the future
 - **THEN** the system deletes all 3 target events and removes all 3 mappings
 
+#### Scenario: Recently passed occurrence is kept
+- **WHEN** a synced occurrence of series "100" is absent from the listing because its time has already passed
+- **AND** its target event's end time is in the past but within the last 7 days
+- **AND** the series master still exists
+- **THEN** the system does NOT delete the target event and does NOT remove its mapping
+
+#### Scenario: Deleted series keeps an already-passed occurrence
+- **WHEN** the recurring series "100" is deleted from the source calendar
+- **AND** one occurrence mapping has a target event whose end time is already in the past
+- **AND** other occurrence mappings have target events in the future
+- **THEN** the system deletes the target events in the future and removes their mappings
+- **AND** the system does NOT delete the past target event and does NOT remove its mapping
+
 #### Scenario: Aged-out occurrence is kept
 - **WHEN** a synced occurrence is absent from the listing because it fell out of the window
-- **AND** its target event's end time is more than 7 days in the past
+- **AND** its target event's end time is in the past
 - **THEN** the system does NOT delete the target event and does NOT remove its mapping
 
 #### Scenario: Old past event is ignored
