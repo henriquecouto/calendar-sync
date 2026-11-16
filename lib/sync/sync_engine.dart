@@ -178,18 +178,24 @@ class SyncEngine {
           continue;
         }
 
-        final threshold = DateTime.now().subtract(const Duration(days: 7));
-        if (targetEvent.endDate.isBefore(threshold)) {
+        if (sourceInstanceId != null) {
+          // Occurrence orphan: a target event whose time has already passed
+          // is never touched — the occurrence simply aged out of the listing
+          // (which starts at now). Only future slots are resolved against
+          // the master: a moved or deleted occurrence (master exists) and a
+          // deleted series (master gone) both delete the target event for
+          // this slot; the fetch also surfaces provider errors here,
+          // deferring deletion.
+          if (targetEvent.endDate.isBefore(DateTime.now())) {
+            continue;
+          }
+          await _calendarService.getEvent(sourceEventId);
+          toDelete.add(mapping);
           continue;
         }
 
-        if (sourceInstanceId != null) {
-          // Occurrence orphan: fetch the master to distinguish a moved or
-          // deleted occurrence (master exists) from a deleted series (master
-          // gone). Both outcomes delete the target event for this slot; the
-          // fetch also surfaces provider errors here, deferring deletion.
-          await _calendarService.getEvent(sourceEventId);
-          toDelete.add(mapping);
+        final threshold = DateTime.now().subtract(const Duration(days: 7));
+        if (targetEvent.endDate.isBefore(threshold)) {
           continue;
         }
 

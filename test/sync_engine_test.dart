@@ -1587,6 +1587,90 @@ void main() {
       verifyNever(() => calendarService.getEvent('src-1'));
     });
 
+    test('recently passed occurrence is kept', () async {
+      final recentlyPassedEnd =
+          DateTime.now().subtract(const Duration(hours: 2));
+
+      when(() => calendarService.listEvents(sourceCalId, end: any(named: 'end')))
+          .thenAnswer((_) async => []);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => [
+                {
+                  'id': 1,
+                  'source_event_id': 'src-1',
+                  'source_instance_id': 'src-1@t1',
+                  'target_event_id': 'tgt-1',
+                  'target_calendar_id': targetCalId,
+                },
+              ]);
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
+          (_) async => targetEvent('tgt-1', endDate: recentlyPassedEnd));
+
+      final plan = await engine.runDryRun(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toDelete, isEmpty);
+      verifyNever(() => calendarService.getEvent('src-1'));
+    });
+
+    test('deleted series keeps passed occurrence, deletes future ones',
+        () async {
+      final recentlyPassedEnd =
+          DateTime.now().subtract(const Duration(hours: 2));
+
+      when(() => calendarService.listEvents(sourceCalId, end: any(named: 'end')))
+          .thenAnswer((_) async => []);
+      when(() => mappingDb.listMappingsForCalendar(profileId, sourceCalId))
+          .thenAnswer((_) async => [
+                {
+                  'id': 1,
+                  'source_event_id': 'src-1',
+                  'source_instance_id': 'src-1@t1',
+                  'target_event_id': 'tgt-1',
+                  'target_calendar_id': targetCalId,
+                },
+                {
+                  'id': 2,
+                  'source_event_id': 'src-1',
+                  'source_instance_id': 'src-1@t2',
+                  'target_event_id': 'tgt-2',
+                  'target_calendar_id': targetCalId,
+                },
+                {
+                  'id': 3,
+                  'source_event_id': 'src-1',
+                  'source_instance_id': 'src-1@t3',
+                  'target_event_id': 'tgt-3',
+                  'target_calendar_id': targetCalId,
+                },
+              ]);
+      when(() => calendarService.getEvent('tgt-1')).thenAnswer(
+          (_) async => targetEvent('tgt-1', endDate: recentlyPassedEnd));
+      when(() => calendarService.getEvent('tgt-2'))
+          .thenAnswer((_) async => targetEvent('tgt-2'));
+      when(() => calendarService.getEvent('tgt-3'))
+          .thenAnswer((_) async => targetEvent('tgt-3'));
+      when(() => calendarService.getEvent('src-1'))
+          .thenAnswer((_) async => null);
+
+      final plan = await engine.runDryRun(
+        profileId: profileId,
+        sourceCalendarId: sourceCalId,
+        targetCalendarId: targetCalId,
+        syncEventName: syncName,
+      );
+
+      expect(plan.toDelete, hasLength(2));
+      expect(
+        plan.toDelete.map((m) => m['source_instance_id']),
+        isNot(contains('src-1@t1')),
+      );
+    });
+
     test('legacy series mapping is lazily replaced', () async {
       final inst1 = occurrence('src-1', 'src-1@t1');
       final inst2 = occurrence('src-1', 'src-1@t2');
